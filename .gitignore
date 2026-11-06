@@ -1,0 +1,18 @@
+node_modules/
+dist/
+.env
+.env.local
+.vercel/
+sincronizacao.log
+# backups e bancos do DirectControl (dados de clientes — não versionar)
+*.gbk
+*.fbk
+*.fdb
+
+# prints e imagens que não são código
+Imagens/
+WhatsApp Image*
+03c (1).jpg
+supa *.jpg
+supa *.png
+.claude/settings.local.json
