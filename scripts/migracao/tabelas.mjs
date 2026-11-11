@@ -92,20 +92,26 @@ export const TABELAS = [
     tabela: 'produtos',
     extrair: (fb) => fb.consultar(`SELECT p.COD_PROD, p.NOME_PROD, p.MARCA, p.REFERENCIA, p.COD_BARRAS, u.UNIDADE,
         p.COD_GRUPO, p.COD_SUBGRUPO, p.PRECO1, p.PRECO_ATACADO, p.QTD_ATACADO, p.CUSTO, p.CUSTO_MEDIO, p.MARGEM,
-        p.ESTOQUE, p.ESTOQUE_MINIMO, p.ATIVO, i.NCM, i.CEST, i.CFOP, i.CST2, ${B('p.UTILIZACAO', 2000, 'UTILIZACAO')},
+        p.ESTOQUE, p.ESTOQUE_MINIMO, p.ATIVO, i.NCM, n.NCM AS NCM_TABELA, i.CEST, n.CEST AS CEST_NCM, i.CFOP, i.CST1, i.CST2,
+        n.PERC_IMPOSTO_FEDERAL, n.PERC_IMPOSTO_ESTADUAL, n.PERC_IMPOSTO_MUNICIPAL, ${B('p.UTILIZACAO', 2000, 'UTILIZACAO')},
         ${D('p.DATA_ULTIMA_ENTRADA', 'DATA_ULTIMA_ENTRADA')}, ${D('p.DATA_ULTIMA_SAIDA', 'DATA_ULTIMA_SAIDA')},
         ${D('p.DATACAD', 'DATACAD')}
       FROM PRODUTOS p
       LEFT JOIN UNIDADES u ON u.COD_UNIDADE = p.COD_UNIDADE
-      LEFT JOIN PRODUTOS_IMPOSTOS i ON i.COD_PROD = p.COD_PROD`),
+      LEFT JOIN PRODUTOS_IMPOSTOS i ON i.COD_PROD = p.COD_PROD
+      LEFT JOIN NCM n ON n.COD_NCM = i.COD_NCM`),
     transformar: (r, c) => ({
       id: r.cod_prod, nome: txt(r.nome_prod) || `PRODUTO ${r.cod_prod}`, marca: txt(r.marca), referencia: txt(r.referencia),
       codigo_barras: txt(r.cod_barras), unidade: txt(r.unidade), grupo_id: fk(r.cod_grupo, c.ids.grupos_produto),
       subgrupo_id: fk(r.cod_subgrupo, c.ids.subgrupos_produto), preco_venda: dinheiro(r.preco1),
       preco_atacado: num(r.preco_atacado) || null, qtd_atacado: num(r.qtd_atacado) || null, custo: num(r.custo),
       custo_medio: num(r.custo_medio), margem: num(r.margem), estoque: num(r.estoque) ?? 0,
-      estoque_minimo: num(r.estoque_minimo), ativo: bool(r.ativo, true), ncm: txt(r.ncm), cest: txt(r.cest),
-      cfop: num(r.cfop), cst_csosn: txt(r.cst2), utilizacao: txt(r.utilizacao),
+      estoque_minimo: num(r.estoque_minimo), ativo: bool(r.ativo, true),
+      // o NCM fica na tabela NCM (PRODUTOS_IMPOSTOS.NCM quase sempre vazio); é ele que vai na NFC-e
+      ncm: dig(r.ncm) || dig(r.ncm_tabela), cest: dig(r.cest) || dig(r.cest_ncm),
+      cfop: num(r.cfop), cst_csosn: txt(r.cst2), origem: Math.min(8, Math.max(0, num(r.cst1) ?? 0)),
+      ibpt_federal: num(r.perc_imposto_federal), ibpt_estadual: num(r.perc_imposto_estadual),
+      ibpt_municipal: num(r.perc_imposto_municipal), utilizacao: txt(r.utilizacao),
       data_ultima_entrada: data(r.data_ultima_entrada), data_ultima_saida: data(r.data_ultima_saida), criado_em: data(r.datacad),
     }),
   },

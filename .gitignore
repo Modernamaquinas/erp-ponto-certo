@@ -16,3 +16,8 @@ WhatsApp Image*
 supa *.jpg
 supa *.png
 .claude/settings.local.json
+
+# certificado digital A1 (nunca versionar)
+certificado/
+*.pfx
+*.p12

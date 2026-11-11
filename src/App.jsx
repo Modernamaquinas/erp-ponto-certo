@@ -13,6 +13,7 @@ import Cobrancas from './paginas/Cobrancas.jsx';
 import Pagar from './paginas/Pagar.jsx';
 import Caixa from './paginas/Caixa.jsx';
 import Cartoes from './paginas/Cartoes.jsx';
+import NotasFiscais from './paginas/NotasFiscais.jsx';
 import Vendas from './paginas/Vendas.jsx';
 import Compras from './paginas/Compras.jsx';
 import Usuarios from './paginas/Usuarios.jsx';
@@ -34,6 +35,7 @@ const MENU = [
   { grupo: 'Movimento', itens: [
     { rota: '/vendas', rotulo: 'Vendas', icone: '$' },
     { rota: '/compras', rotulo: 'Notas de Compra', icone: '⎘' },
+    { rota: '/notas', rotulo: 'Notas Fiscais', icone: '🗎' },
   ] },
   { grupo: 'Sistema', admin: true, itens: [{ rota: '/usuarios', rotulo: 'Usuários', icone: '⚙' }] },
 ];
@@ -51,6 +53,7 @@ function Conteudo({ rota, perfil }) {
     case '/fornecedores': return <Fornecedores />;
     case '/vendas': return <Vendas params={params} />;
     case '/compras': return <Compras />;
+    case '/notas': return <NotasFiscais params={params} />;
     case '/receber': return fin ? <Receber params={params} /> : semAcesso;
     case '/cobrancas': return fin ? <Cobrancas params={params} /> : semAcesso;
     case '/pagar': return fin ? <Pagar params={params} /> : semAcesso;

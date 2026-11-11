@@ -272,3 +272,12 @@ button.cartao:hover { border-color: var(--marca); }
 /* ---------------------------------------------------------------- cartões/TEF (2026-11-11) */
 .cartao-destaque { border-color: var(--marca); box-shadow: inset 0 -3px 0 var(--marca); }
 .texto-fraco { color: var(--texto-3); font-size: 12px; margin: 10px 0 0; }
+
+/* ---------------------------------------------------------------- notas fiscais (2026-11-11) */
+.busca-produto { position: relative; margin: 8px 0; }
+.lista-escolha { list-style: none; margin: 4px 0 0; padding: 4px; border: 1px solid var(--borda); border-radius: 8px; background: var(--superficie); max-height: 280px; overflow-y: auto; }
+.lista-escolha button { width: 100%; text-align: left; background: none; border: 0; padding: 8px; border-radius: 6px; cursor: pointer; color: inherit; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.lista-escolha button:hover { background: var(--superficie-2); }
+.input-peq { width: 90px; height: 30px; padding: 0 6px; border: 1px solid var(--borda); border-radius: 6px; background: var(--superficie); color: var(--texto); }
+.emitir-nota { margin-top: 12px; }
+.aviso-ok { background: var(--ok-fundo); border-color: var(--ok); }

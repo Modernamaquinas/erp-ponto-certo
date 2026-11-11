@@ -19,7 +19,7 @@ para o ERP.
 ## Implantação (passo a passo)
 
 1. **Supabase**: crie um projeto (região São Paulo) e rode, no SQL Editor, `supabase/migrations/001_schema.sql`
-   e depois `002_seguranca.sql`, `003_cartoes.sql` e `004_cartoes_seguranca.sql` (ou, com `DATABASE_URL` no
+   e depois `002_seguranca.sql`, `003_cartoes.sql`, `004_cartoes_seguranca.sql`, `005_fiscal.sql` e `006_fiscal_seguranca.sql` (ou, com `DATABASE_URL` no
    `.env`: `node scripts/aplicar-sql.mjs supabase/migrations/00X_....sql`).
 2. **`.env`**: copie `.env.example` para `.env` e preencha (chaves do Supabase, `DATABASE_URL`, Asaas).
 3. **Instale**: `npm install`.
