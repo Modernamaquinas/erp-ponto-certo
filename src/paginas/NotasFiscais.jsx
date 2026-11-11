@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { supabase, api, ou } from '../lib/supabase.js';
 import { moeda, numero, data, dataHora, documento, hoje, somarDias, filtrarBusca } from '../lib/formato.js';
 import { navegar, usePerfil, podeFinanceiro } from '../lib/contexto.js';
+import { imprimirNota, acaoAposEmitir, lerImpressora, salvarImpressora } from '../lib/impressao.js';
 import { Pagina, Filtros, Campo, Tabela, Paginacao, Modal, Etiqueta, Aviso, Detalhes, useConsulta, useAtrasado, useAvisar } from '../componentes/ui.jsx';
 
 // NFC-e (65) e NF-e (55) emitidas pelo ERP via Focus NFe. As notas do DirectControl continuam lá (Fase 1).
@@ -29,7 +30,7 @@ export default function NotasFiscais({ params }) {
   const perfil = usePerfil();
   const aba = params.aba || 'notas';
   const cfg = useConsulta(async () => ({ dados: ou(await supabase.from('fiscal_config').select('*').eq('id', 1).single()).data }), []);
-  const abas = [['notas', 'Notas emitidas'], ['emitir', 'Emitir nota'], ...(perfil.papel === 'admin' ? [['config', 'Configuração']] : [])];
+  const abas = [['notas', 'Notas emitidas'], ['emitir', 'Emitir nota'], ['impressora', 'Impressora'], ...(perfil.papel === 'admin' ? [['config', 'Configuração']] : [])];
   const ambiente = cfg.dados?.ambiente;
   return (
     <Pagina titulo="Notas Fiscais" subtitulo="NFC-e e NF-e emitidas pelo ERP (SEFAZ-RS, via Focus NFe)"
@@ -43,6 +44,7 @@ export default function NotasFiscais({ params }) {
       <StatusSefaz />
       {aba === 'notas' && <ListaNotas />}
       {aba === 'emitir' && cfg.dados && <EmitirNota cfg={cfg.dados} />}
+      {aba === 'impressora' && <ConfigImpressora />}
       {aba === 'config' && cfg.dados && <Configuracao cfg={cfg.dados} aoSalvar={cfg.recarregar} />}
     </Pagina>
   );
@@ -143,6 +145,7 @@ function DetalheNota({ nota: n, aoFechar, aoAcao, aoCancelar }) {
         {['autorizada', 'cancelada'].includes(n.status) && <>
           <button type="button" className="btn btn-sec" onClick={() => aoAcao(n, 'xml')}>XML</button>
           <button type="button" className="btn btn-sec" onClick={() => aoAcao(n, 'danfe')}>DANFE</button>
+          {n.status === 'autorizada' && <BotaoImprimir id={n.id} classe="btn btn-pri" />}
         </>}
         {['processando', 'erro'].includes(n.status) && <button type="button" className="btn btn-sec" onClick={() => aoAcao(n, 'consultar')}>Consultar SEFAZ</button>}
         {n.status === 'autorizada' && podeFinanceiro(perfil) && !cancelando &&
@@ -246,6 +249,7 @@ function EmitirNota({ cfg }) {
   const [obs, setObs] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState(null);
+  const [perguntaImprimir, setPerguntaImprimir] = useState(null);
 
   const total = itens.reduce((s, i) => s + Math.round(num(i.quantidade) * num(i.valor_unitario) * 100) / 100 - num(i.desconto), 0);
   const pago = pagamentos.reduce((s, p) => s + num(p.valor), 0);
@@ -264,6 +268,9 @@ function EmitirNota({ cfg }) {
       } });
       setResultado(r.nota);
       if (r.nota.status === 'autorizada') {
+        const acao = acaoAposEmitir(r.nota.modelo);
+        if (acao === 'automatico') imprimirNota(r.nota.id).catch((e) => avisar(`Impressão: ${e.message}`, 'erro'));
+        else if (acao === 'perguntar') setPerguntaImprimir(r.nota);
         avisar(`${MODELO[modelo]} ${r.nota.numero} autorizada.`);
         setItens([]); setPagamentos([{ forma: 'dinheiro', valor: '' }]); setCliente(null); setCpf(''); setObs('');
       } else avisar(`SEFAZ: ${r.nota.motivo || STATUS[r.nota.status][1]}`, 'erro');
@@ -316,12 +323,22 @@ function EmitirNota({ cfg }) {
         <button type="button" className="btn btn-pri" disabled={enviando || !itens.length || (modelo === 55 && !cliente)} onClick={emitir}>
           {enviando ? 'Enviando à SEFAZ…' : `Emitir ${MODELO[modelo]}`}</button>
       </div>
+      {perguntaImprimir && (
+        <Modal aberto titulo={`${MODELO[perguntaImprimir.modelo]} ${perguntaImprimir.serie}/${perguntaImprimir.numero} autorizada`} aoFechar={() => setPerguntaImprimir(null)}
+          rodape={<>
+            <button type="button" className="btn btn-sec" onClick={() => setPerguntaImprimir(null)}>Não imprimir</button>
+            <BotaoImprimir id={perguntaImprimir.id} classe="btn btn-pri" texto="Imprimir nota" autoFoco aoTerminar={() => setPerguntaImprimir(null)} />
+          </>}>
+          <p>Venda concluída e nota autorizada pela SEFAZ. Deseja imprimir {perguntaImprimir.modelo === 65 ? 'o cupom (DANFCE)' : 'o DANFE'}?</p>
+          <p className="texto-fraco">Para não perguntar mais, mude em Notas Fiscais → Impressora.</p>
+        </Modal>
+      )}
       {resultado && resultado.status !== 'autorizada' && (
         <Aviso tipo="erro">{STATUS[resultado.status]?.[1]}: {resultado.motivo}</Aviso>
       )}
       {resultado?.status === 'autorizada' && (
         <Aviso tipo="ok">{MODELO[resultado.modelo]} {resultado.serie}/{resultado.numero} autorizada. Chave {resultado.chave}.{' '}
-          <a href="#/notas">Ver notas</a></Aviso>
+          <a href="#/notas">Ver notas</a> <BotaoImprimir id={resultado.id} classe="btn btn-sec btn-peq" /></Aviso>
       )}
     </div>
   );
@@ -362,4 +379,80 @@ function Configuracao({ cfg, aoSalvar }) {
       <div className="form-acoes"><button type="submit" className="btn btn-pri" disabled={salvando}>{salvando ? 'Salvando…' : 'Salvar'}</button></div>
     </form>
   );
+}
+
+function BotaoImprimir({ id, classe = 'btn btn-sec btn-peq', texto = 'Imprimir', autoFoco, aoTerminar }) {
+  const avisar = useAvisar();
+  const [imprimindo, setImprimindo] = useState(false);
+  async function imprimir(e) {
+    e?.stopPropagation();
+    setImprimindo(true);
+    try { await imprimirNota(id); aoTerminar?.(); } catch (erro) { avisar(`Impressão: ${erro.message}`, 'erro'); }
+    setImprimindo(false);
+  }
+  return <button type="button" className={classe} onClick={imprimir} disabled={imprimindo} autoFocus={autoFoco}>{imprimindo ? 'Preparando…' : texto}</button>;
+}
+
+function ConfigImpressora() {
+  const avisar = useAvisar();
+  const [c, setC] = useState(lerImpressora);
+  const set = (k) => (e) => setC({ ...c, [k]: e.target.value });
+  function salvar(e) {
+    e.preventDefault();
+    if (salvarImpressora({ ...c, vias: Number(c.vias) || 1 })) avisar('Configuração de impressão salva neste computador.');
+    else avisar('O navegador bloqueou o armazenamento local; a configuração não foi salva.', 'erro');
+  }
+  return (
+    <form className="form-grade" onSubmit={salvar} style={{ maxWidth: 720, marginTop: 16 }}>
+      <p className="texto-fraco campo-largo">Vale só para <strong>este computador</strong>, já que cada caixa tem a sua impressora.</p>
+      <Campo rotulo="Depois de autorizar uma NFC-e">
+        <select value={c.aposEmitir} onChange={set('aposEmitir')}>
+          <option value="perguntar">Perguntar "Imprimir nota?"</option>
+          <option value="automatico">Imprimir automaticamente</option>
+          <option value="nunca">Não imprimir</option>
+        </select>
+      </Campo>
+      <Campo rotulo="Depois de autorizar uma NF-e">
+        <select value={c.nfe} onChange={set('nfe')}>
+          <option value="perguntar">Perguntar "Imprimir nota?"</option>
+          <option value="automatico">Imprimir automaticamente</option>
+          <option value="nunca">Não imprimir</option>
+        </select>
+      </Campo>
+      <Campo rotulo="Largura do papel do cupom">
+        <select value={c.largura} onChange={set('largura')}>
+          <option value="80">80 mm (Epson TM-T20, TM-T88…)</option>
+          <option value="58">58 mm</option>
+        </select>
+      </Campo>
+      <Campo rotulo="Vias do cupom">
+        <select value={c.vias} onChange={set('vias')}><option value={1}>1</option><option value={2}>2</option><option value={3}>3</option></select>
+      </Campo>
+      <div className="form-acoes"><button type="submit" className="btn btn-pri">Salvar</button></div>
+      <div className="campo-largo">
+        <h3>Como deixar a Epson imprimindo direto</h3>
+        <ol className="texto-ajuda">
+          <li>Instale o driver da Epson (Epson Advanced Printer Driver) e deixe a impressora como <strong>padrão do Windows</strong>.
+            Em Preferências de impressão, escolha o papel <strong>80 x 297 mm</strong> (ou "Roll Paper 80mm").</li>
+          <li>O cupom da NFC-e (DANFCE) sai na térmica. O DANFE da NF-e é folha A4: imprima numa impressora comum, escolhida na janela de impressão.</li>
+          <li>Para imprimir <strong>sem a janela de impressão</strong>, crie um atalho do Chrome no caixa com o destino:<br />
+            <code>"C:\Program Files\Google\Chrome\Application\chrome.exe" --kiosk-printing https://erp-ponto-certo.vercel.app</code><br />
+            Abrindo o ERP por esse atalho, tudo vai direto para a impressora padrão.</li>
+          <li>Se a sua Epson for uma impressora <strong>fiscal antiga (ECF)</strong>, ela não imprime NFC-e. A NFC-e precisa de impressora não fiscal (térmica comum).</li>
+        </ol>
+        <BotaoTeste />
+      </div>
+    </form>
+  );
+}
+
+function BotaoTeste() {
+  const teste = () => {
+    const f = document.createElement('iframe');
+    f.style.cssText = 'position:fixed;width:0;height:0;border:0;visibility:hidden';
+    f.srcdoc = '<html><head><style>@page{size:80mm auto;margin:0}body{width:72mm;font:12px monospace;text-align:center}</style></head><body><b>PONTO CERTO FERRAGENS</b><br/>Teste de impressão do ERP<br/>' + new Date().toLocaleString('pt-BR') + '<br/>--------------------------------<br/>Se você está lendo isto, a impressora está ok.</body></html>';
+    f.onload = () => { f.contentWindow.print(); setTimeout(() => f.remove(), 30000); };
+    document.body.appendChild(f);
+  };
+  return <button type="button" className="btn btn-sec" onClick={teste}>Imprimir página de teste</button>;
 }

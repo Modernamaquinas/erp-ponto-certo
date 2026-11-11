@@ -281,3 +281,5 @@ button.cartao:hover { border-color: var(--marca); }
 .input-peq { width: 90px; height: 30px; padding: 0 6px; border: 1px solid var(--borda); border-radius: 6px; background: var(--superficie); color: var(--texto); }
 .emitir-nota { margin-top: 12px; }
 .aviso-ok { background: var(--ok-fundo); border-color: var(--ok); }
+.texto-ajuda { padding-left: 18px; line-height: 1.6; color: var(--texto-2); }
+.texto-ajuda code { display: inline-block; margin: 4px 0; padding: 4px 6px; background: var(--superficie-2); border-radius: 4px; font-size: 12px; word-break: break-all; }

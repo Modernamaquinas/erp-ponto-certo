@@ -58,6 +58,8 @@ async function principal() {
     serie_nfe_producao: '2', serie_nfe_homologacao: '2', serie_nfce_producao: '10', serie_nfce_homologacao: '10',
   };
   if (process.env.EMPRESA_EMAIL) empresa.email = process.env.EMPRESA_EMAIL;
+  // logo do DANFE/DANFCE: PNG até 200x200 (gerado de public/logo.png)
+  empresa.arquivo_logo_base64 = readFileSync('scripts/fiscal/logo-danfe.png').toString('base64');
   if (process.env.NFCE_CSC_HOMOLOGACAO) {
     empresa.csc_nfce_homologacao = process.env.NFCE_CSC_HOMOLOGACAO;
     empresa.id_token_nfce_homologacao = Number(process.env.NFCE_ID_CSC_HOMOLOGACAO || 1);
@@ -83,6 +85,7 @@ async function principal() {
 
   console.log(`  ${SIMULAR ? 'validação ok' : existente ? 'empresa atualizada' : 'empresa cadastrada'}: ${r.nome || empresa.nome}`);
   if (r.certificado_valido_ate) console.log(`  certificado de ${r.certificado_cnpj || '?'} válido até ${r.certificado_valido_ate}`);
+  console.log(`  logo: ${r.caminho_logo ? 'instalado' : 'não retornado'}`);
   console.log(`  NFC-e: ${r.habilita_nfce ? 'habilitada' : '?'} | CSC produção: ${r.csc_nfce_producao ? 'ok' : 'falta'} | CSC homologação: ${r.csc_nfce_homologacao ? 'ok' : 'não informado'}`);
   if (!SIMULAR && (r.token_homologacao || r.token_producao)) {
     gravarEnv({ FOCUS_TOKEN_HOMOLOGACAO: r.token_homologacao, FOCUS_TOKEN_PRODUCAO: r.token_producao });
