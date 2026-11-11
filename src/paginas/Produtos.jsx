@@ -3,6 +3,7 @@ import { supabase, ou } from '../lib/supabase.js';
 import { moeda, numero, data, filtrarBusca } from '../lib/formato.js';
 import { usePerfil, podeFinanceiro } from '../lib/contexto.js';
 import { Pagina, Filtros, Campo, Tabela, Paginacao, Modal, Detalhes, Etiqueta, useConsulta, useAtrasado } from '../componentes/ui.jsx';
+import EditarCadastro from '../componentes/EditarCadastro.jsx';
 
 const POR_PAGINA = 50;
 
@@ -31,7 +32,7 @@ export default function Produtos() {
   }, [busca, filtro, grupo, pagina]);
 
   return (
-    <Pagina titulo="Produtos e Preços" subtitulo="Preço e estoque vêm do DirectControl (sincronizados); alterações continuam sendo feitas lá na Fase 1">
+    <Pagina titulo="Produtos e Preços" subtitulo="Clique no produto para ver e editar o cadastro">
       <Filtros>
         <Campo rotulo="Buscar (partes do nome, referência, marca ou código de barras)" largo>
           <input type="search" autoFocus value={termo} onChange={(e) => { setPagina(1); setTermo(e.target.value); }} placeholder="Ex.: abrac nylon 200" />
@@ -63,12 +64,13 @@ export default function Produtos() {
           { titulo: 'Preço', alinhar: 'dir', render: (p) => <strong>{moeda(p.preco_venda)}</strong> },
         ]} />
       <Paginacao pagina={pagina} total={lista.total} porPagina={POR_PAGINA} aoMudar={setPagina} />
-      {aberto && <DetalheProduto id={aberto.id} verCusto={verCusto} aoFechar={() => setAberto(null)} />}
+      {aberto && <DetalheProduto id={aberto.id} verCusto={verCusto} aoFechar={() => setAberto(null)} aoAlterar={lista.recarregar} />}
     </Pagina>
   );
 }
 
-function DetalheProduto({ id, verCusto, aoFechar }) {
+function DetalheProduto({ id, verCusto, aoFechar, aoAlterar }) {
+  const [editando, setEditando] = useState(false);
   const d = useConsulta(async () => {
     const [p, forn, compras] = await Promise.all([
       supabase.from('produtos').select('*, grupos_produto(nome), subgrupos_produto(nome)').eq('id', id).single().then(ou),
@@ -77,11 +79,13 @@ function DetalheProduto({ id, verCusto, aoFechar }) {
     ]);
     const ultimas = compras.data.filter((c) => c.compras).sort((a, b) => (b.compras.data_emissao || '').localeCompare(a.compras.data_emissao || '')).slice(0, 8).map((c, key) => ({ ...c, key }));
     return { dados: { p: p.data, forn: forn.data, compras: ultimas } };
-  }, [id]);
+  }, [id, editando]);
   const p = d.dados?.p;
 
   return (
-    <Modal aberto largo titulo={p ? p.nome : 'Produto'} aoFechar={aoFechar}>
+    <Modal aberto largo titulo={p ? p.nome : 'Produto'} aoFechar={aoFechar}
+      rodape={verCusto && p && <button type="button" className="btn btn-pri" onClick={() => setEditando(true)}>Editar produto</button>}>
+      {editando && p && <EditarProduto p={p} aoFechar={() => setEditando(false)} aoSalvar={() => { setEditando(false); aoAlterar(); }} />}
       {!p ? <p>Carregando…</p> : <>
         <Detalhes itens={[
           ['Código', p.id], ['Código de barras', p.codigo_barras], ['Referência', p.referencia], ['Marca', p.marca], ['Unidade', p.unidade],
@@ -114,5 +118,44 @@ function DetalheProduto({ id, verCusto, aoFechar }) {
         </>}
       </>}
     </Modal>
+  );
+}
+
+function EditarProduto({ p, aoFechar, aoSalvar }) {
+  const aux = useConsulta(async () => {
+    const [g, s] = await Promise.all([
+      supabase.from('grupos_produto').select('id, nome').order('nome').then(ou),
+      supabase.from('subgrupos_produto').select('id, nome, grupo_id').order('nome').then(ou),
+    ]);
+    return { dados: { grupos: g.data, subgrupos: s.data } };
+  }, []);
+  if (!aux.dados) return null;
+  const ncm = (v) => (/^\d{8}$/.test(v) ? null : 'NCM com 8 dígitos');
+  return (
+    <EditarCadastro titulo={`Editar produto ${p.id}`} tabela="produtos" id={p.id} valores={p} aoFechar={aoFechar} aoSalvar={aoSalvar}
+      aviso="O estoque não se altera aqui: ele muda pelas vendas, compras e ajuste de estoque."
+      campos={[
+        { campo: 'nome', rotulo: 'Nome do produto', largo: true, obrigatorio: true, max: 120 },
+        { campo: 'codigo_barras', rotulo: 'Código de barras (EAN)', max: 14 },
+        { campo: 'referencia', rotulo: 'Referência', max: 60 },
+        { campo: 'marca', rotulo: 'Marca', max: 60 },
+        { campo: 'unidade', rotulo: 'Unidade (UN, CX, M, KG…)', max: 6 },
+        { campo: 'grupo_id', rotulo: 'Grupo', tipo: 'select', numerico: true, opcoes: aux.dados.grupos.map((g) => [g.id, g.nome]) },
+        { campo: 'subgrupo_id', rotulo: 'Subgrupo', tipo: 'select', numerico: true, opcoes: aux.dados.subgrupos.map((g) => [g.id, g.nome]) },
+        { campo: 'preco_venda', rotulo: 'Preço de venda (R$)', tipo: 'decimal', obrigatorio: true },
+        { campo: 'custo', rotulo: 'Custo (R$)', tipo: 'decimal' },
+        { campo: 'margem', rotulo: 'Margem (%)', tipo: 'decimal' },
+        { campo: 'preco_atacado', rotulo: 'Preço atacado (R$)', tipo: 'decimal' },
+        { campo: 'qtd_atacado', rotulo: 'Atacado a partir de (qtd)', tipo: 'decimal' },
+        { campo: 'estoque_minimo', rotulo: 'Estoque mínimo', tipo: 'decimal' },
+        { campo: 'ncm', rotulo: 'NCM', tipo: 'digitos', max: 10, validar: ncm },
+        { campo: 'cest', rotulo: 'CEST', tipo: 'digitos', max: 9 },
+        { campo: 'cfop', rotulo: 'CFOP (5102 ou 5405)', tipo: 'inteiro', max: 4 },
+        { campo: 'cst_csosn', rotulo: 'CSOSN', tipo: 'select', opcoes: [['102', '102 - tributado sem crédito'], ['103', '103 - isento'], ['300', '300 - imune'],
+          ['400', '400 - não tributado'], ['500', '500 - ICMS cobrado por ST'], ['900', '900 - outros']] },
+        { campo: 'origem', rotulo: 'Origem', tipo: 'select', numerico: true, opcoes: [[0, '0 - Nacional'], [1, '1 - Estrangeira (importação direta)'], [2, '2 - Estrangeira (mercado interno)']] },
+        { campo: 'utilizacao', rotulo: 'Utilização / aplicação', tipo: 'area', largo: true, maiusculo: false, max: 2000 },
+        { campo: 'ativo', rotulo: 'Produto ativo', tipo: 'check' },
+      ]} />
   );
 }

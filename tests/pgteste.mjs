@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 
 export async function bancoDeTeste() {
   const db = new PGlite({ extensions: { pg_trgm } });
-  for (const f of ['001_schema.sql', '003_cartoes.sql', '005_fiscal.sql', '007_pdv.sql', '009_usuarios_pdv.sql']) {
+  for (const f of ['001_schema.sql', '003_cartoes.sql', '005_fiscal.sql', '007_pdv.sql', '009_usuarios_pdv.sql', '010_edicao_cadastros.sql']) {
     await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'));
   }
   return db;

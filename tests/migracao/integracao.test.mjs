@@ -61,6 +61,15 @@ test('migração completa e re-sincronização', { skip: !FDB && 'defina FDB_TES
     t = await um(`select status, saldo from contas_receber where id = $1`, [outro.id]);
     assert.equal(Number(t.saldo), Math.round((Number(outro.saldo) - 1) * 100) / 100);
     await assert.rejects(db.query(`select baixar_conta_receber($1, 999999, current_date, 2)`, [outro.id]), /maior que o saldo/);
+
+    // 5) Cadastro editado no ERP sobrevive à re-sincronização (o estoque continua vindo do legado)
+    await db.query(`update produtos set preco_venda = 123.45, alterado_erp = true, estoque = -999 where id = 9022`);
+    await db.query(`update clientes set nome = 'NOME EDITADO NO ERP', alterado_erp = true where id = 2000`);
+    await executarMigracao({ fb, db, somente: ['clientes', 'produtos'], log: () => {} });
+    const pr = await um(`select preco_venda::text as p, estoque::numeric as e from produtos where id = 9022`);
+    assert.equal(pr.p, '123.45');
+    assert.notEqual(Number(pr.e), -999);
+    assert.equal((await um(`select nome from clientes where id = 2000`)).nome, 'NOME EDITADO NO ERP');
   } finally {
     await fb.fechar();
     await db.close();

@@ -23,7 +23,7 @@ async function preparar() {
     alter default privileges in schema public grant all on tables to anon, authenticated;
     alter default privileges in schema public grant all on sequences to anon, authenticated;
   `);
-  for (const f of ['002_seguranca.sql', '004_cartoes_seguranca.sql', '006_fiscal_seguranca.sql', '008_pdv_seguranca.sql']) {
+  for (const f of ['002_seguranca.sql', '004_cartoes_seguranca.sql', '006_fiscal_seguranca.sql', '008_pdv_seguranca.sql', '011_edicao_seguranca.sql']) {
     await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'));
   }
   await db.exec(`
@@ -68,7 +68,18 @@ test('RLS por papel', async () => {
     assert.equal(r.rows[0].status, 'pago');
     await como(db, FIN, `update clientes set celular_cobranca = '54999990000' where id = 10`);
     assert.equal((await db.query(`select celular_cobranca from clientes where id = 10`)).rows[0].celular_cobranca, '54999990000');
-    await assert.rejects(como(db, FIN, `update clientes set nome = 'OUTRO' where id = 10`), /permission denied/);
+    // dado de cobrança não marca o cadastro como editado; o cadastro em si, sim
+    assert.equal((await db.query('select alterado_erp from clientes where id = 10')).rows[0].alterado_erp, false);
+    await como(db, FIN, `update clientes set nome = 'OUTRO', cidade_id = null where id = 10`);
+    assert.deepEqual((await db.query('select nome, alterado_erp from clientes where id = 10')).rows[0], { nome: 'OUTRO', alterado_erp: true });
+    await assert.rejects(como(db, FIN, `update clientes set asaas_customer_id = 'x' where id = 10`), /permission denied/);
+
+    // produtos: financeiro edita preço/cadastro, mas não o estoque; vendedor não edita
+    await como(db, FIN, `update produtos set preco_venda = 6.5, ncm = '82023900' where id = 5`);
+    assert.deepEqual((await db.query('select preco_venda::text as p, alterado_erp from produtos where id = 5')).rows[0], { p: '6.50', alterado_erp: true });
+    await assert.rejects(como(db, FIN, `update produtos set estoque = 999 where id = 5`), /permission denied/);
+    await como(db, VEND, `update produtos set preco_venda = 1 where id = 5`);
+    assert.equal((await db.query('select preco_venda::text as p from produtos where id = 5')).rows[0].p, '6.50');
     // não pode confirmar pagamento Asaas pelo navegador (só o webhook, com service role)
     await assert.rejects(como(db, FIN, `select confirmar_cobranca_paga('x', current_date, 1, 1, 'PIX')`), /permission denied/);
 

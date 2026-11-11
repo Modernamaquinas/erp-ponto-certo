@@ -4,11 +4,13 @@ import { moeda, data, documento, telefone } from '../lib/formato.js';
 import { usePerfil, podeFinanceiro } from '../lib/contexto.js';
 import { Pagina, Campo, Tabela, Detalhes, Aviso, Etiqueta, useConsulta, useAvisar } from '../componentes/ui.jsx';
 import { situacaoTitulo } from './Receber.jsx';
+import EditarCadastro, { validarDoc, validarCep } from '../componentes/EditarCadastro.jsx';
 
 export default function ClienteDetalhe({ id }) {
   const fin = podeFinanceiro(usePerfil());
   const avisar = useAvisar();
   const [edicao, setEdicao] = useState(null);
+  const [editandoCadastro, setEditandoCadastro] = useState(false);
 
   const cli = useConsulta(async () => ({ dados: ou(await supabase.from('clientes').select('*, cidades(nome, uf)').eq('id', id).single()).data }), [id]);
   const vendas = useConsulta(async () => ({ dados: ou(await supabase.from('vendas').select('id, data, total, situacao')
@@ -54,7 +56,31 @@ export default function ClienteDetalhe({ id }) {
             ['Situação', <span key="s">{c.ativo ? <Etiqueta tipo="ok">Ativo</Etiqueta> : <Etiqueta>Inativo</Etiqueta>} {c.bloqueado && <Etiqueta tipo="erro">Venda bloqueada</Etiqueta>}</span>],
             ['Observações', c.observacoes],
           ]} />
-          <p className="ajuda">Para alterar estes dados, use o DirectControl (a sincronização traz as mudanças).</p>
+          {fin && <button type="button" className="btn btn-pri" onClick={() => setEditandoCadastro(true)}>Editar cadastro</button>}
+          {editandoCadastro && <EditarCadastro titulo={`Editar cliente ${c.id}`} tabela="clientes" id={c.id} valores={{ ...c, _cidade: c.cidades }}
+            aoFechar={() => setEditandoCadastro(false)} aoSalvar={() => { setEditandoCadastro(false); cli.recarregar(); }}
+            campos={[
+              { campo: 'nome', rotulo: 'Nome / razão social', largo: true, obrigatorio: true, max: 120 },
+              { campo: 'nome_fantasia', rotulo: 'Nome fantasia', largo: true, max: 120 },
+              { campo: 'tipo_pessoa', rotulo: 'Tipo', tipo: 'select', opcoes: [['F', 'Física'], ['J', 'Jurídica']] },
+              { campo: 'cpf_cnpj', rotulo: 'CPF/CNPJ', tipo: 'digitos', max: 18, validar: validarDoc },
+              { campo: 'rg_ie', rotulo: 'RG / Inscrição estadual', max: 20 },
+              { campo: 'data_nascimento', rotulo: 'Nascimento', tipo: 'data' },
+              { campo: 'celular', rotulo: 'Celular', tipo: 'digitos', max: 15 },
+              { campo: 'telefone', rotulo: 'Telefone', tipo: 'digitos', max: 15 },
+              { campo: 'email', rotulo: 'E-mail', largo: true, maiusculo: false, max: 120 },
+              { campo: 'contato', rotulo: 'Contato', max: 60 },
+              { campo: 'cep', rotulo: 'CEP', tipo: 'digitos', max: 9, validar: validarCep },
+              { campo: 'endereco', rotulo: 'Endereço', largo: true, max: 120 },
+              { campo: 'numero', rotulo: 'Número', max: 10 },
+              { campo: 'complemento', rotulo: 'Complemento', max: 60 },
+              { campo: 'bairro', rotulo: 'Bairro', max: 60 },
+              { campo: 'cidade_id', rotulo: 'Cidade', tipo: 'cidade' },
+              { campo: 'limite_credito', rotulo: 'Limite de crédito (R$)', tipo: 'decimal' },
+              { campo: 'observacoes', rotulo: 'Observações', tipo: 'area', largo: true, maiusculo: false, max: 2000 },
+              { campo: 'bloqueado', rotulo: 'Bloquear vendas a prazo (crediário)', tipo: 'check' },
+              { campo: 'ativo', rotulo: 'Cliente ativo', tipo: 'check' },
+            ]} />}
         </section>
 
         {fin && (

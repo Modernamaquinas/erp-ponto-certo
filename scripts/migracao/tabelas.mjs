@@ -10,6 +10,19 @@ const D = (c, alias = c) => `CAST(${c} AS VARCHAR(10)) AS ${alias}`;
 const H = (c, alias = c) => `CAST(${c} AS VARCHAR(13)) AS ${alias}`;
 const B = (c, n = 2000, alias = c) => `CAST(SUBSTRING(${c} FROM 1 FOR ${n}) AS VARCHAR(${n})) AS ${alias}`;
 
+// Cadastro editado no ERP (alterado_erp) não é sobrescrito pela sincronização nas colunas editáveis.
+const preservaEditados = (tabela, colunas) =>
+  Object.fromEntries(colunas.map((c) => [c, `case when ${tabela}.alterado_erp then ${tabela}.${c} else excluded.${c} end`]));
+const EDITAVEIS = {
+  clientes: ['nome', 'nome_fantasia', 'tipo_pessoa', 'cpf_cnpj', 'rg_ie', 'email', 'celular', 'telefone', 'contato', 'cep', 'endereco',
+    'numero', 'complemento', 'bairro', 'cidade_id', 'data_nascimento', 'limite_credito', 'bloqueado', 'ativo', 'observacoes'],
+  fornecedores: ['nome', 'fantasia', 'tipo_pessoa', 'cpf_cnpj', 'ie', 'email', 'telefone', 'celular', 'contato', 'cep', 'endereco',
+    'numero', 'complemento', 'bairro', 'cidade_id', 'ativo', 'observacoes'],
+  produtos: ['nome', 'marca', 'referencia', 'codigo_barras', 'unidade', 'grupo_id', 'subgrupo_id', 'preco_venda', 'preco_atacado',
+    'qtd_atacado', 'custo', 'margem', 'estoque_minimo', 'ativo', 'ncm', 'cest', 'cfop', 'cst_csosn', 'origem', 'utilizacao',
+    'ibpt_federal', 'ibpt_estadual', 'ibpt_municipal'],
+};
+
 export const TABELAS = [
   {
     tabela: 'empresa',
@@ -71,6 +84,7 @@ export const TABELAS = [
         ultima_compra: data(r.dt_ult_compra),
       };
     },
+    set: preservaEditados('clientes', EDITAVEIS.clientes),
   },
   {
     tabela: 'fornecedores',
@@ -87,6 +101,7 @@ export const TABELAS = [
         observacoes: txt(r.observacoes), criado_em: data(r.datacad),
       };
     },
+    set: preservaEditados('fornecedores', EDITAVEIS.fornecedores),
   },
   {
     tabela: 'produtos',
@@ -114,6 +129,7 @@ export const TABELAS = [
       ibpt_municipal: num(r.perc_imposto_municipal), utilizacao: txt(r.utilizacao),
       data_ultima_entrada: data(r.data_ultima_entrada), data_ultima_saida: data(r.data_ultima_saida), criado_em: data(r.datacad),
     }),
+    set: preservaEditados('produtos', EDITAVEIS.produtos),
   },
   {
     tabela: 'produto_fornecedores',

@@ -3,6 +3,7 @@ import { supabase, ou } from '../lib/supabase.js';
 import { moeda, data, documento, telefone, filtrarBusca } from '../lib/formato.js';
 import { usePerfil, podeFinanceiro } from '../lib/contexto.js';
 import { Pagina, Filtros, Campo, Tabela, Modal, Detalhes, Etiqueta, useConsulta, useAtrasado } from '../componentes/ui.jsx';
+import EditarCadastro, { validarDoc, validarCep } from '../componentes/EditarCadastro.jsx';
 
 export default function Fornecedores() {
   const [termo, setTermo] = useState('');
@@ -30,12 +31,13 @@ export default function Fornecedores() {
           { titulo: 'Telefone', render: (f) => telefone(f.telefone || f.celular) },
           { titulo: 'Cidade', render: (f) => (f.cidades ? `${f.cidades.nome}/${f.cidades.uf}` : '') },
         ]} />
-      {aberto && <DetalheFornecedor f={aberto} aoFechar={() => setAberto(null)} />}
+      {aberto && <DetalheFornecedor f={aberto} aoFechar={() => setAberto(null)} aoAlterar={() => { setAberto(null); lista.recarregar(); }} />}
     </Pagina>
   );
 }
 
-function DetalheFornecedor({ f, aoFechar }) {
+function DetalheFornecedor({ f, aoFechar, aoAlterar }) {
+  const [editando, setEditando] = useState(false);
   const fin = podeFinanceiro(usePerfil());
   const notas = useConsulta(async () => ({ dados: ou(await supabase.from('compras').select('id, numero_nota, data_emissao, valor_total')
     .eq('fornecedor_id', f.id).order('data_emissao', { ascending: false }).limit(10)).data }), [f.id]);
@@ -44,7 +46,29 @@ function DetalheFornecedor({ f, aoFechar }) {
   const aPagar = (abertas.dados || []).reduce((s, c) => s + Number(c.saldo), 0);
 
   return (
-    <Modal aberto largo titulo={f.nome} aoFechar={aoFechar}>
+    <Modal aberto largo titulo={f.nome} aoFechar={aoFechar}
+      rodape={fin && <button type="button" className="btn btn-pri" onClick={() => setEditando(true)}>Editar fornecedor</button>}>
+      {editando && <EditarCadastro titulo={`Editar fornecedor ${f.id}`} tabela="fornecedores" id={f.id} valores={{ ...f, _cidade: f.cidades }}
+        aoFechar={() => setEditando(false)} aoSalvar={aoAlterar}
+        campos={[
+          { campo: 'nome', rotulo: 'Razão social / nome', largo: true, obrigatorio: true, max: 120 },
+          { campo: 'fantasia', rotulo: 'Nome fantasia', largo: true, max: 120 },
+          { campo: 'tipo_pessoa', rotulo: 'Tipo', tipo: 'select', opcoes: [['J', 'Jurídica'], ['F', 'Física']] },
+          { campo: 'cpf_cnpj', rotulo: 'CNPJ/CPF', tipo: 'digitos', max: 18, validar: validarDoc },
+          { campo: 'ie', rotulo: 'Inscrição estadual', max: 20 },
+          { campo: 'contato', rotulo: 'Contato', max: 60 },
+          { campo: 'telefone', rotulo: 'Telefone', tipo: 'digitos', max: 15 },
+          { campo: 'celular', rotulo: 'Celular', tipo: 'digitos', max: 15 },
+          { campo: 'email', rotulo: 'E-mail', largo: true, maiusculo: false, max: 120 },
+          { campo: 'cep', rotulo: 'CEP', tipo: 'digitos', max: 9, validar: validarCep },
+          { campo: 'endereco', rotulo: 'Endereço', largo: true, max: 120 },
+          { campo: 'numero', rotulo: 'Número', max: 10 },
+          { campo: 'complemento', rotulo: 'Complemento', max: 60 },
+          { campo: 'bairro', rotulo: 'Bairro', max: 60 },
+          { campo: 'cidade_id', rotulo: 'Cidade', tipo: 'cidade' },
+          { campo: 'observacoes', rotulo: 'Observações', tipo: 'area', largo: true, maiusculo: false, max: 2000 },
+          { campo: 'ativo', rotulo: 'Fornecedor ativo', tipo: 'check' },
+        ]} />}
       <Detalhes itens={[
         ['Código', f.id], ['Fantasia', f.fantasia], ['CNPJ/CPF', documento(f.cpf_cnpj)], ['IE', f.ie],
         ['Telefone', telefone(f.telefone)], ['Celular', telefone(f.celular)], ['E-mail', f.email], ['Contato', f.contato],
