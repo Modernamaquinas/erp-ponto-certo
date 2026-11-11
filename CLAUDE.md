@@ -7,7 +7,9 @@ ERP web da Ponto Certo Ferragens (pt-BR), substituindo o DirectControl/Acertsoft
   rotas por hash em `src/lib/contexto.js`. Acesso a dados direto pelo supabase-js (RLS protege).
 - `api/` funções Vercel: `cobrancas.js` (Asaas), `asaas-webhook.js`, `usuarios.js`; regras em `api/_lib/`.
 - `supabase/migrations/`: `001_schema.sql` (tabelas, funções de baixa, views; roda também no PGlite) e
-  `002_seguranca.sql` (perfis/papéis admin|financeiro|vendedor, RLS; depende do schema `auth` do Supabase).
+  `002_seguranca.sql` (perfis/papéis admin|financeiro|vendedor, RLS; depende do schema `auth` do Supabase);
+  `003_cartoes.sql` (TEF/taxas/recebíveis, roda no PGlite) + `004_cartoes_seguranca.sql` (RLS dele).
+  Aplicar em banco existente: `node scripts/aplicar-sql.mjs <arquivos>`.
 - `scripts/migracao/`: leitura do Firebird 2.5 (WIN1252, `node-firebird` com conexão UTF8) e upsert no
   Postgres. Mesmo código faz a carga completa e a sincronização incremental (`--incremental`).
 
@@ -26,4 +28,7 @@ ERP web da Ponto Certo Ferragens (pt-BR), substituindo o DirectControl/Acertsoft
   (`select('x:col.sum()')`, habilitada em 002), nunca somando linhas no navegador. Soma + filtro em tabela
   relacionada: embed com uma coluna (`clientes!inner(ativo)`) e somar as ≤2 linhas; `clientes!inner()` vazio
   com agregação dá erro "column clientes does not exist" no PostgREST do Supabase.
+- TEF do caixa é PayGo Web (multi-adquirente: Cielo, PagSeguro, Stone, Vero, PIX Shipay), não uma integração direta
+  com a Cielo. `TEF_TRANSACAO.DATA_HORA_LOCAL` não tem ano (`dataHoraTef`). O PDV da Fase 2 fala com um agente local
+  no PC do caixa (`src/lib/tef.js`, contrato em `docs/tef-cielo.md`) e grava via `pdv_registrar_tef`.
 - `npm test` usa PGlite (tests/pgteste.mjs). Com `FDB_TESTE` aponta para um .fdb restaurado e roda a migração real.

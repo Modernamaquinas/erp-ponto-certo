@@ -268,3 +268,7 @@ button.cartao:hover { border-color: var(--marca); }
   .barra-mes { font-size: 9px; }
   .barra-valor { display: none; }
 }
+
+/* ---------------------------------------------------------------- cartões/TEF (2026-11-11) */
+.cartao-destaque { border-color: var(--marca); box-shadow: inset 0 -3px 0 var(--marca); }
+.texto-fraco { color: var(--texto-3); font-size: 12px; margin: 10px 0 0; }

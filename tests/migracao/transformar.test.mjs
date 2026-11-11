@@ -62,3 +62,36 @@ test('somarDias atravessa meses', () => {
   assert.equal(somarDias('2026-11-06', -15), '2026-10-22');
   assert.equal(somarDias('2026-12-31', 1), '2027-01-01');
 });
+
+test('TEF: rede, modalidade, bandeira e situação do PayGo/ACBr', async () => {
+  const { redeTef, modalidadeTef, bandeiraTef, situacaoTef } = await import('../../scripts/migracao/transformar.mjs');
+  assert.equal(redeTef('PAGSEGUR'), 'PAGSEGURO');
+  assert.equal(redeTef('VEROBANR'), 'VERO');
+  assert.equal(redeTef('CIELO'), 'CIELO');
+  assert.equal(redeTef('dedicado'), null);
+  assert.equal(modalidadeTef('10', 'CIELO', 'ELO CREDITO'), 'credito');
+  assert.equal(modalidadeTef('11', 'CIELO', 'VISA'), 'credito_parcelado_loja');
+  assert.equal(modalidadeTef('12', 'STONE', 'VISA'), 'credito_parcelado_adm');
+  assert.equal(modalidadeTef('20', 'CIELO', 'ELECTRON'), 'debito');
+  assert.equal(modalidadeTef('51', 'SHIPAY', 'PIX'), 'pix');
+  assert.equal(modalidadeTef('20', 'VERO', 'BANRISUL ALIMENTACAO'), 'voucher');
+  assert.equal(modalidadeTef(null, null, null), null);
+  assert.equal(bandeiraTef('pix'), 'PIX');
+  assert.equal(bandeiraTef('00-0040-F2C182AAC2EDE3B6'), null);
+  assert.equal(bandeiraTef('d4310df2-a3db-4e94-b040-f79362'), null);
+  assert.equal(situacaoTef('CNF', '0', 'STONE', '123'), 'aprovada');
+  assert.equal(situacaoTef('CRT', '2', 'CIELO', '902727'), 'aprovada');
+  assert.equal(situacaoTef('CRT', '77', null, null), 'nao_concluida');
+  assert.equal(situacaoTef(null, '3', null, null), 'nao_concluida');
+});
+
+test('TEF: data/hora DDMMhhmmss ganha o ano da finalização ou da venda', async () => {
+  const { dataHoraTef } = await import('../../scripts/migracao/transformar.mjs');
+  assert.equal(dataHoraTef('0611114841', '26110611484111607521007', '2026-11-06'), '2026-11-06 11:48:41');
+  assert.equal(dataHoraTef('1105151927', '24051115192705100191011', null), '2024-05-11 15:19:27');
+  assert.equal(dataHoraTef('3112235900', null, '2027-01-01'), '2026-12-31 23:59:00');
+  assert.equal(dataHoraTef('0705095150', null, '2023-05-07'), '2023-05-07 09:51:50');
+  assert.equal(dataHoraTef(null, null, '2025-01-04'), '2025-01-04 00:00:00');
+  assert.equal(dataHoraTef('3102101010', null, '2026-02-28'), '2026-02-28 00:00:00');
+  assert.equal(dataHoraTef(null, null, null), null);
+});

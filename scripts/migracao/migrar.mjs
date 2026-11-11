@@ -60,11 +60,15 @@ export async function conferir(fb, db) {
   const [fbVendas] = await fb.consultar(`SELECT COUNT(*) AS N, SUM(TOT_NOTA) AS S FROM VENDAS WHERE VENDA_FINALIZADA = 'T'`);
   const [fbProdutos] = await fb.consultar(`SELECT COUNT(*) AS N, SUM(ESTOQUE) AS S FROM PRODUTOS`);
   const [fbClientes] = await fb.consultar(`SELECT COUNT(*) AS N FROM CLIENTES`);
+  const [fbTef] = await fb.consultar(`SELECT COUNT(*) AS N, SUM(VALOR_TOTAL) AS S FROM TEF_TRANSACAO
+    WHERE STATUS_TRANSACAO IN ('0', '2') AND HEADER IN ('CRT', 'CNF') AND COD_AUTORIZACAO_TRANSACAO IS NOT NULL
+      AND NOME_REDE IS NOT NULL AND NOME_REDE <> 'dedicado'`);
   const um = async (sql) => (await db.query(sql)).rows[0];
   const pgReceber = await um(`select count(*) as n, sum(saldo) as s from contas_receber where status = 'aberto' and baixa_origem is null`);
   const pgVendas = await um(`select count(*) as n, sum(total) as s from vendas where situacao = 'finalizada'`);
   const pgProdutos = await um(`select count(*) as n, sum(estoque) as s from produtos`);
   const pgClientes = await um(`select count(*) as n from clientes`);
+  const pgTef = await um(`select count(*) as n, sum(valor) as s from tef_transacoes where situacao = 'aprovada' and origem = 'legado'`);
   const r2 = (v) => Math.round(Number(v || 0) * 100) / 100;
   const linhas = [
     ['Contas a receber em aberto (qtd)', Number(fbReceber.n), Number(pgReceber.n)],
@@ -74,6 +78,8 @@ export async function conferir(fb, db) {
     ['Produtos (qtd)', Number(fbProdutos.n), Number(pgProdutos.n)],
     ['Estoque total (unid.)', r2(fbProdutos.s), r2(pgProdutos.s)],
     ['Clientes (qtd)', Number(fbClientes.n), Number(pgClientes.n)],
+    ['TEF aprovadas (qtd)', Number(fbTef.n), Number(pgTef.n)],
+    ['TEF aprovadas (R$)', r2(fbTef.s), r2(pgTef.s)],
   ];
   return linhas.map(([item, origem, destino]) => ({ item, origem, destino, ok: origem === destino }));
 }

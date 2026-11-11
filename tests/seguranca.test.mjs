@@ -23,7 +23,9 @@ async function preparar() {
     alter default privileges in schema public grant all on tables to anon, authenticated;
     alter default privileges in schema public grant all on sequences to anon, authenticated;
   `);
-  await db.exec(readFileSync(new URL('../supabase/migrations/002_seguranca.sql', import.meta.url), 'utf8'));
+  for (const f of ['002_seguranca.sql', '004_cartoes_seguranca.sql']) {
+    await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'));
+  }
   await db.exec(`
     insert into auth.users values ('${ADMIN}'), ('${FIN}'), ('${VEND}');
     insert into perfis (user_id, nome, papel) values ('${ADMIN}', 'Admin', 'admin'), ('${FIN}', 'Fin', 'financeiro'), ('${VEND}', 'Vend', 'vendedor');
@@ -81,6 +83,19 @@ test('RLS por papel', async () => {
     await como(db, FIN, `delete from contas_pagar`);
     const restantes = (await db.query(`select id from contas_pagar order by id`)).rows.map((x) => Number(x.id));
     assert.deepEqual(restantes, [200]);
+
+    // TEF: o caixa (vendedor) registra pelo PDV, mas não lê nem grava direto; taxas só o financeiro
+    await como(db, VEND, `select pdv_registrar_tef('{"situacao":"aprovada","rede":"cielo","modalidade":"debito","valor":10,"nsu":"1","data_hora":"2026-11-06 10:00"}')`);
+    assert.equal((await db.query(`select count(*)::int as n from tef_transacoes where origem = 'erp' and rede = 'CIELO'`)).rows[0].n, 1);
+    assert.equal((await como(db, VEND, 'select * from tef_transacoes')).rows.length, 0);
+    assert.equal((await como(db, FIN, 'select * from tef_transacoes')).rows.length, 1);
+    await assert.rejects(como(db, VEND, `select registrar_transacao_tef('{"situacao":"aprovada"}')`), /permission denied/);
+    await assert.rejects(como(db, VEND, `insert into tef_transacoes (situacao, valor) values ('aprovada', 1)`), /row-level security/);
+    await assert.rejects(como(db, null, `select pdv_registrar_tef('{"situacao":"aprovada"}')`), /permission denied|Sem permissão/);
+    await assert.rejects(como(db, VEND, `insert into cartao_taxas (rede, modalidade, taxa_percentual, dias_recebimento) values ('CIELO', 'debito', 1, 1)`), /row-level security/);
+    await como(db, FIN, `insert into cartao_taxas (rede, modalidade, taxa_percentual, dias_recebimento) values ('CIELO', 'debito', 1.2, 1)`);
+    assert.equal((await como(db, FIN, 'select valor_liquido::text as l from v_cartoes_recebiveis')).rows[0].l, '9.88');
+    assert.equal((await como(db, VEND, 'select * from v_cartoes_recebiveis')).rows.length, 0);
   } finally {
     await db.close();
   }

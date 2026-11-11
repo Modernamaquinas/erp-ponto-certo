@@ -12,6 +12,7 @@ import Receber from './paginas/Receber.jsx';
 import Cobrancas from './paginas/Cobrancas.jsx';
 import Pagar from './paginas/Pagar.jsx';
 import Caixa from './paginas/Caixa.jsx';
+import Cartoes from './paginas/Cartoes.jsx';
 import Vendas from './paginas/Vendas.jsx';
 import Compras from './paginas/Compras.jsx';
 import Usuarios from './paginas/Usuarios.jsx';
@@ -23,6 +24,7 @@ const MENU = [
     { rota: '/cobrancas', rotulo: 'Cobranças Asaas', icone: '◎' },
     { rota: '/pagar', rotulo: 'Contas a Pagar', icone: '↑' },
     { rota: '/caixa', rotulo: 'Caixa', icone: '▤' },
+    { rota: '/cartoes', rotulo: 'Cartões e PIX', icone: '▭' },
   ] },
   { grupo: 'Cadastros', itens: [
     { rota: '/clientes', rotulo: 'Clientes', icone: '☺' },
@@ -53,6 +55,7 @@ function Conteudo({ rota, perfil }) {
     case '/cobrancas': return fin ? <Cobrancas params={params} /> : semAcesso;
     case '/pagar': return fin ? <Pagar params={params} /> : semAcesso;
     case '/caixa': return fin ? <Caixa /> : semAcesso;
+    case '/cartoes': return fin ? <Cartoes params={params} /> : semAcesso;
     case '/usuarios': return perfil.papel === 'admin' ? <Usuarios /> : semAcesso;
     default: return <Aviso>Página não encontrada.</Aviso>;
   }

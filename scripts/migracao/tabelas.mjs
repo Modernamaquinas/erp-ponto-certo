@@ -1,7 +1,8 @@
 // Mapa tabela a tabela: o que ler do DirectControl e como gravar no ERP.
 // Ordem importa (pais antes dos filhos). `incremental: 'janela'` = na sincronização periódica só
 // relê os últimos N dias (tabelas grandes); as demais são relidas inteiras (upsert idempotente).
-import { txt, dig, bool, num, dinheiro, data, hora, fk, tipoPessoa, situacaoVenda, statusReceber, tipoForma, tipoPlano } from './transformar.mjs';
+import { txt, dig, bool, num, dinheiro, data, hora, fk, tipoPessoa, situacaoVenda, statusReceber, tipoForma, tipoPlano,
+  redeTef, modalidadeTef, bandeiraTef, situacaoTef, dataHoraTef } from './transformar.mjs';
 
 // Datas/horas/blobs convertidos para texto no próprio Firebird: evita o deslocamento de fuso
 // do driver e lê BLOB de texto sem uma chamada extra por linha.
@@ -280,6 +281,34 @@ export const TABELAS = [
       documento: num(r.n_doc) ? String(r.n_doc) : null, origem: 'legado', usuario: c.usuarios.get(r.cod_usuario) || null,
     }),
     filtrar: (o) => o.data !== null,
+  },
+  {
+    // TEF do caixa (PayGo Web: Cielo, Stone, PagSeguro, Vero, PIX Shipay). Operações administrativas
+    // (ADM/ATV: abertura, reimpressão) não têm valor e ficam de fora.
+    tabela: 'tef_transacoes',
+    incremental: 'janela',
+    extrair: (fb, c) => fb.consultarPaginado(`SELECT t.CODIGO, t.HEADER, t.STATUS_TRANSACAO, t.NOME_REDE, t.TIPO_TRANSACAO,
+        t.VALOR_TOTAL, t.NUM_TRANSACAO_TEF, t.COD_AUTORIZACAO_TRANSACAO, t.DATA_HORA_LOCAL, t.FINALIZACAO, t.QTDE_PARCELAS,
+        t.NOME_ADMINISTRADORA, t.CNPJ_ADQUIRENTE, t.COD_NOTA, ${D('v.DATA', 'DATA_VENDA')},
+        ${B('t.TEXTO_ESPECIAL_OPERADOR', 200, 'MENSAGEM')}
+      FROM TEF_TRANSACAO t LEFT JOIN VENDAS v ON v.COD_NOTA = t.COD_NOTA
+      WHERE (t.HEADER IS NULL OR t.HEADER NOT IN ('ADM', 'ATV'))${c.desde ? ` AND v.DATA >= '${c.desde}'` : ''}`, 't.CODIGO'),
+    transformar: (r, c) => {
+      const rede = redeTef(r.nome_rede);
+      const bandeira = bandeiraTef(r.nome_administradora);
+      const cancelamento = txt(r.header) === 'CNC';
+      return {
+        id: r.codigo, venda_id: fk(r.cod_nota, c.ids.vendas), operacao: cancelamento ? 'cancelamento' : 'venda',
+        situacao: cancelamento ? 'nao_concluida' : situacaoTef(r.header, r.status_transacao, rede, r.cod_autorizacao_transacao),
+        gerenciador: 'paygo', rede, modalidade: modalidadeTef(r.tipo_transacao, rede, bandeira), bandeira,
+        parcelas: Math.max(1, num(r.qtde_parcelas) || 1), valor: dinheiro(r.valor_total), nsu: txt(r.num_transacao_tef),
+        autorizacao: txt(r.cod_autorizacao_transacao), cnpj_adquirente: dig(r.cnpj_adquirente),
+        data_hora: dataHoraTef(r.data_hora_local, r.finalizacao, r.data_venda), mensagem: txt(r.mensagem), origem: 'legado',
+      };
+    },
+    // No legado todo CNC terminou em "operação cancelada" (nenhum cancelamento aprovado). Um cancelamento
+    // feito pelo PDV do ERP (Fase 2) marca a original como cancelada, e a re-sincronização não pode desfazer isso.
+    set: { situacao: `case when tef_transacoes.situacao = 'cancelada' then 'cancelada' else excluded.situacao end` },
   },
 ];
 

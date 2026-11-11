@@ -7,7 +7,7 @@ const POR_PAGINA = 50;
 const SITUACAO = { finalizada: ['ok', 'Finalizada'], estornada: ['erro', 'Estornada'], cancelada: ['neutra', 'Cancelada'], aberta: ['alerta', 'Não finalizada'] };
 
 export default function Vendas({ params }) {
-  const [f, setF] = useState({ de: params.cliente ? '' : inicioDoMes(), ate: params.cliente ? '' : hoje(), situacao: 'finalizada', cliente: params.cliente || '', numero: '' });
+  const [f, setF] = useState({ de: params.cliente ? '' : inicioDoMes(), ate: params.cliente ? '' : hoje(), situacao: 'finalizada', cliente: params.cliente || '', numero: params.numero || '' });
   const [pagina, setPagina] = useState(1);
   const [aberta, setAberta] = useState(null);
   const mudar = (k) => (e) => { setPagina(1); setF((x) => ({ ...x, [k]: e.target.value })); };

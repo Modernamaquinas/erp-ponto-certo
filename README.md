@@ -19,13 +19,14 @@ para o ERP.
 ## Implantação (passo a passo)
 
 1. **Supabase**: crie um projeto (região São Paulo) e rode, no SQL Editor, `supabase/migrations/001_schema.sql`
-   e depois `002_seguranca.sql`.
+   e depois `002_seguranca.sql`, `003_cartoes.sql` e `004_cartoes_seguranca.sql` (ou, com `DATABASE_URL` no
+   `.env`: `node scripts/aplicar-sql.mjs supabase/migrations/00X_....sql`).
 2. **`.env`**: copie `.env.example` para `.env` e preencha (chaves do Supabase, `DATABASE_URL`, Asaas).
 3. **Instale**: `npm install`.
 4. **Primeiro administrador**: `node scripts/criar-admin.mjs voce@email.com "SenhaForte123" "Seu Nome"`.
 5. **Carga inicial** (num computador da loja, que enxerga o servidor `DESKTOP-8LQ068N`):
    `npm run migrar`. Ela lê tudo e confere os totais (títulos em aberto, vendas, estoque, clientes) entre
-   origem e destino.
+   origem e destino, inclusive as transações TEF aprovadas.
    Para testar a partir de um backup `.gbk`, restaure-o antes com
    `gbak -c -user SYSDBA -password masterkey backup.gbk localhost:C:\caminho\copia.fdb` e rode
    `npm run migrar -- --fdb "C:\caminho\copia.fdb"`.
