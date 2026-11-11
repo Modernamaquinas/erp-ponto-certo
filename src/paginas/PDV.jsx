@@ -51,13 +51,13 @@ function Desbloqueio({ aoLiberar }) {
   return (
     <form className="pdv-bloqueio" onSubmit={liberar}>
       <span className="pdv-cadeado" aria-hidden="true">🔒</span>
-      <h2>Digite o código do operador</h2>
+      <h2>Digite o seu número de cadastro</h2>
       <input ref={campo} className="pdv-codigo" type="password" inputMode="numeric" autoComplete="off" maxLength={4} value={codigo}
         onChange={(e) => { const v = e.target.value.replace(/\D/g, '').slice(0, 4); setCodigo(v); setErro(''); }}
-        onKeyUp={(e) => { if (e.key !== 'Enter' && codigo.length === 4 && !conferindo) liberar(); }} aria-label="Código do operador" />
+        onKeyUp={(e) => { if (e.key !== 'Enter' && codigo.length === 4 && !conferindo) liberar(); }} aria-label="Número do cadastro" />
       {erro && <Aviso tipo="erro">{erro}</Aviso>}
       <button type="submit" className="btn btn-pri" disabled={conferindo}>{conferindo ? 'Conferindo…' : 'Liberar'}</button>
-      <p className="texto-fraco">Os códigos são cadastrados pelo administrador em Sistema → Operadores.</p>
+      <p className="texto-fraco">O número (4 dígitos) é cadastrado pelo administrador em Sistema → Usuários.</p>
     </form>
   );
 }

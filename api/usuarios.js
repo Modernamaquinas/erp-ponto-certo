@@ -28,7 +28,7 @@ export default rota(async (req, res) => {
       await sb.auth.admin.deleteUser(data.user.id);
       throw e2;
     }
-    return res.status(201).json({ ok: true });
+    return res.status(201).json({ ok: true, user_id: data.user.id });
   }
 
   throw new ErroHttp(405, 'Método não suportado');
