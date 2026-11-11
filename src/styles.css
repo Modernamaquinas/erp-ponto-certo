@@ -283,3 +283,20 @@ button.cartao:hover { border-color: var(--marca); }
 .aviso-ok { background: var(--ok-fundo); border-color: var(--ok); }
 .texto-ajuda { padding-left: 18px; line-height: 1.6; color: var(--texto-2); }
 .texto-ajuda code { display: inline-block; margin: 4px 0; padding: 4px 6px; background: var(--superficie-2); border-radius: 4px; font-size: 12px; word-break: break-all; }
+
+/* ---------------------------------------------------------------- PDV e orçamentos (2026-11-11) */
+.pdv { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; margin-top: 8px; }
+.pdv-principal { min-width: 0; }
+.pdv-lateral { display: flex; flex-direction: column; gap: 10px; background: var(--superficie); border: 1px solid var(--borda); border-radius: 10px; padding: 14px; align-self: start; position: sticky; top: 12px; }
+.pdv-busca { font-size: 18px; height: 44px; }
+.pdv-totais > div { display: flex; justify-content: space-between; padding: 4px 0; font-variant-numeric: tabular-nums; }
+.pdv-total { border-top: 1px solid var(--borda); margin-top: 6px; padding-top: 8px !important; font-size: 22px; color: var(--marca); }
+.pdv-finalizar { height: 48px; font-size: 17px; }
+.pdv-operador { display: inline-flex; align-items: center; gap: 10px; }
+.pdv-bloqueio { max-width: 360px; margin: 60px auto; display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center;
+  background: var(--superficie); border: 1px solid var(--borda); border-radius: 12px; padding: 28px; }
+.pdv-bloqueio h2 { margin: 0; font-size: 18px; }
+.pdv-cadeado { font-size: 36px; }
+.pdv-codigo { width: 180px; height: 56px; font-size: 32px; letter-spacing: 14px; text-align: center; border: 2px solid var(--borda); border-radius: 10px; background: var(--superficie); color: var(--texto); }
+.pdv-codigo:focus { border-color: var(--marca); outline: none; }
+@media (max-width: 900px) { .pdv { grid-template-columns: 1fr; } .pdv-lateral { position: static; } }

@@ -23,7 +23,7 @@ async function preparar() {
     alter default privileges in schema public grant all on tables to anon, authenticated;
     alter default privileges in schema public grant all on sequences to anon, authenticated;
   `);
-  for (const f of ['002_seguranca.sql', '004_cartoes_seguranca.sql', '006_fiscal_seguranca.sql']) {
+  for (const f of ['002_seguranca.sql', '004_cartoes_seguranca.sql', '006_fiscal_seguranca.sql', '008_pdv_seguranca.sql']) {
     await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'));
   }
   await db.exec(`
@@ -96,6 +96,15 @@ test('RLS por papel', async () => {
     await como(db, FIN, `insert into cartao_taxas (rede, modalidade, taxa_percentual, dias_recebimento) values ('CIELO', 'debito', 1.2, 1)`);
     assert.equal((await como(db, FIN, 'select valor_liquido::text as l from v_cartoes_recebiveis')).rows[0].l, '9.88');
     assert.equal((await como(db, VEND, 'select * from v_cartoes_recebiveis')).rows.length, 0);
+
+    // PDV: código do operador é segredo (só admin vê); venda e orçamento só pela API (service role)
+    await db.exec(`insert into operadores (codigo, nome) values ('1234', 'OP')`);
+    assert.equal((await como(db, VEND, 'select * from operadores')).rows.length, 0);
+    assert.equal((await como(db, FIN, 'select * from operadores')).rows.length, 0);
+    assert.equal((await como(db, ADMIN, 'select codigo from operadores')).rows[0].codigo, '1234');
+    await assert.rejects(como(db, VEND, `select finalizar_venda('{}')`), /permission denied/);
+    await assert.rejects(como(db, ADMIN, `select salvar_orcamento('{}')`), /permission denied/);
+    await assert.rejects(como(db, VEND, `insert into orcamentos (data) values (current_date)`), /row-level security/);
   } finally {
     await db.close();
   }

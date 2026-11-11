@@ -14,6 +14,9 @@ import Pagar from './paginas/Pagar.jsx';
 import Caixa from './paginas/Caixa.jsx';
 import Cartoes from './paginas/Cartoes.jsx';
 import NotasFiscais from './paginas/NotasFiscais.jsx';
+import PDV from './paginas/PDV.jsx';
+import Orcamentos from './paginas/Orcamentos.jsx';
+import Operadores from './paginas/Operadores.jsx';
 import Vendas from './paginas/Vendas.jsx';
 import Compras from './paginas/Compras.jsx';
 import Usuarios from './paginas/Usuarios.jsx';
@@ -33,11 +36,13 @@ const MENU = [
     { rota: '/fornecedores', rotulo: 'Fornecedores', icone: '⛟' },
   ] },
   { grupo: 'Movimento', itens: [
+    { rota: '/pdv', rotulo: 'Nova venda (PDV)', icone: '⊕' },
+    { rota: '/orcamentos', rotulo: 'Orçamentos', icone: '✎' },
     { rota: '/vendas', rotulo: 'Vendas', icone: '$' },
     { rota: '/compras', rotulo: 'Notas de Compra', icone: '⎘' },
     { rota: '/notas', rotulo: 'Notas Fiscais', icone: '🗎' },
   ] },
-  { grupo: 'Sistema', admin: true, itens: [{ rota: '/usuarios', rotulo: 'Usuários', icone: '⚙' }] },
+  { grupo: 'Sistema', admin: true, itens: [{ rota: '/usuarios', rotulo: 'Usuários', icone: '⚙' }, { rota: '/operadores', rotulo: 'Operadores do caixa', icone: '#' }] },
 ];
 
 function Conteudo({ rota, perfil }) {
@@ -54,6 +59,10 @@ function Conteudo({ rota, perfil }) {
     case '/vendas': return <Vendas params={params} />;
     case '/compras': return <Compras />;
     case '/notas': return <NotasFiscais params={params} />;
+    case '/pdv': return <PDV params={params} modo="venda" />;
+    case '/orcamento': return <PDV params={params} modo="orcamento" />;
+    case '/orcamentos': return <Orcamentos />;
+    case '/operadores': return perfil.papel === 'admin' ? <Operadores /> : semAcesso;
     case '/receber': return fin ? <Receber params={params} /> : semAcesso;
     case '/cobrancas': return fin ? <Cobrancas params={params} /> : semAcesso;
     case '/pagar': return fin ? <Pagar params={params} /> : semAcesso;

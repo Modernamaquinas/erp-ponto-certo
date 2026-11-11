@@ -131,15 +131,46 @@ export const TABELAS = [
     incremental: 'janela',
     extrair: (fb, c) => fb.consultarPaginado(`SELECT COD_NOTA, ${D('DATA')}, ${H('HORA')}, COD_CLI, CLI_FORACAD, CPF,
         TOT_PRODUTOS, DESCVALOR, ACRESCVALOR, TOT_NOTA, VENDA_FINALIZADA, ${D('DATA_ESTORNO')}, NUM_NFC, NUM_NFE,
-        NUM_CAIXA, OBSERVACAO FROM VENDAS WHERE DATA IS NOT NULL${c.desde ? ` AND DATA >= '${c.desde}'` : ''}`, 'COD_NOTA'),
+        NUM_CAIXA, OBSERVACAO, COD_VENDEDOR FROM VENDAS WHERE DATA IS NOT NULL${c.desde ? ` AND DATA >= '${c.desde}'` : ''}`, 'COD_NOTA'),
     transformar: (r, c) => ({
       id: r.cod_nota, data: data(r.data), hora: hora(r.hora), cliente_id: fk(r.cod_cli, c.ids.clientes),
       cliente_nome: txt(r.cli_foracad), cpf_nota: dig(r.cpf), total_produtos: num(r.tot_produtos),
       desconto: dinheiro(r.descvalor), acrescimo: dinheiro(r.acrescvalor), total: dinheiro(r.tot_nota),
       situacao: situacaoVenda(r.venda_finalizada, r.data_estorno), numero_nfce: num(r.num_nfc) || null,
-      numero_nfe: num(r.num_nfe) || null, num_caixa: num(r.num_caixa), observacao: txt(r.observacao),
+      numero_nfe: num(r.num_nfe) || null, num_caixa: num(r.num_caixa), observacao: txt(r.observacao), vendedor_legado: num(r.cod_vendedor),
     }),
+    // vendas feitas no PDV do ERP têm id >= 1.000.000 e nunca vêm do legado
     filtrar: (o) => o.data !== null,
+  },
+  {
+    tabela: 'orcamentos',
+    incremental: 'janela',
+    extrair: (fb, c) => fb.consultarPaginado(`SELECT COD_ORC, ${D('DATA')}, ${H('HORA')}, COD_CLI, CLI_FORACAD, COD_VENDEDOR, TOT_PRODUTOS,
+        TOT_ORC, DESC_TOTAL, COD_NOTA_VENDA, ${D('DATA_HORA_CANCELAMENTO', 'CANCELADO_EM')}, ${B('OBSERVACAO', 1000)}
+      FROM ORCAMENTO WHERE DATA IS NOT NULL${c.desde ? ` AND DATA >= '${c.desde}'` : ''}`, 'COD_ORC'),
+    transformar: (r, c) => {
+      const venda = fk(r.cod_nota_venda, c.ids.vendas);
+      return {
+        id: r.cod_orc, data: data(r.data), hora: hora(r.hora), cliente_id: fk(r.cod_cli, c.ids.clientes), cliente_nome: txt(r.cli_foracad),
+        vendedor_legado: num(r.cod_vendedor), total_produtos: dinheiro(r.tot_produtos), desconto: dinheiro(r.desc_total), total: dinheiro(r.tot_orc),
+        status: num(r.cod_nota_venda) ? 'convertido' : data(r.cancelado_em) ? 'cancelado' : 'aberto', venda_id: venda,
+        observacao: txt(r.observacao), origem: 'legado',
+      };
+    },
+    filtrar: (o) => o.data !== null,
+  },
+  {
+    tabela: 'orcamento_itens',
+    incremental: 'janela',
+    conflito: ['orcamento_id', 'item'],
+    extrair: (fb, c) => fb.consultarPaginado(`SELECT COD_ORC, ITEM_ORC, COD_PROD, NOMEPROD, QUANT, PRECOUNIT, VLTOTITEM FROM ITEMORCAMENTO
+      WHERE COD_PROD IS NOT NULL${c.desde ? ` AND COD_ORC IN (SELECT COD_ORC FROM ORCAMENTO WHERE DATA >= '${c.desde}')` : ''}`, 'COD_ORC, ITEM_ORC'),
+    transformar: (r, c) => {
+      if (!c.ids.orcamentos.has(r.cod_orc)) return null;
+      const q = num(r.quant) ?? 0; const pu = num(r.precounit) ?? 0; const tot = dinheiro(r.vltotitem);
+      return { orcamento_id: r.cod_orc, item: r.item_orc, produto_id: fk(r.cod_prod, c.ids.produtos), descricao: txt(r.nomeprod),
+        quantidade: q, preco_unitario: pu, desconto: Math.max(0, Math.round((q * pu - tot) * 100) / 100), total: tot };
+    },
   },
   {
     tabela: 'venda_itens',
@@ -320,4 +351,4 @@ export const TABELAS = [
 
 // Tabelas cujos ids são consultados no destino para validar FKs dos filhos.
 export const CONJUNTOS_DE_IDS = ['cidades', 'formas_pagamento', 'plano_contas', 'grupos_produto', 'subgrupos_produto',
-  'clientes', 'fornecedores', 'produtos', 'vendas', 'compras', 'contas_receber'];
+  'clientes', 'fornecedores', 'produtos', 'vendas', 'compras', 'contas_receber', 'orcamentos'];

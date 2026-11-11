@@ -23,6 +23,7 @@ export function acaoAposEmitir(modelo) {
 
 // Cupom de 80 mm (área útil ~72 mm) ou 58 mm (~48 mm) em impressora térmica.
 function estiloCupom(largura) {
+  if (largura === 'A4') return '<style id="pc-impressao">@page { size: A4; margin: 10mm; } @media print { body { margin: 0 auto !important; } }</style>';
   const util = largura === '58' ? '48mm' : '72mm';
   return `<style id="pc-impressao">
     @page { size: ${largura}mm auto; margin: 0; }
@@ -68,4 +69,16 @@ export async function imprimirNota(notaId) {
   }
   const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
   try { await imprimirEmQuadro({ url }, 1); } finally { setTimeout(() => URL.revokeObjectURL(url), 60000); }
+}
+
+/** Imprime um HTML montado no próprio ERP (comprovante de venda, orçamento) na largura configurada. */
+export function imprimirHtml(corpo, { titulo = 'Impressão', largura } = {}) {
+  const l = largura || lerImpressora().largura;
+  const larguraTela = l === 'A4' ? '190mm' : l === '58' ? '48mm' : '72mm';
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${titulo}</title>${estiloCupom(l)}
+    <style>body{font:12px/1.35 'Courier New',monospace;color:#000;width:${larguraTela};margin:0 auto}
+    h1{font-size:14px;margin:4px 0;text-align:center} .c{text-align:center} .d{text-align:right} hr{border:0;border-top:1px dashed #000;margin:6px 0}
+    table{width:100%;border-collapse:collapse} td{vertical-align:top;padding:1px 0} .g{font-size:15px;font-weight:bold} img{max-width:60%}</style>
+    </head><body>${corpo}</body></html>`;
+  return imprimirEmQuadro({ html }, 1);
 }

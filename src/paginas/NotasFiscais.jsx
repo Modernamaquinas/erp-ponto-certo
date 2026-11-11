@@ -177,7 +177,7 @@ function DetalheNota({ nota: n, aoFechar, aoAcao, aoCancelar }) {
   );
 }
 
-function BuscaProduto({ aoEscolher }) {
+export function BuscaProduto({ aoEscolher }) {
   const [termo, setTermo] = useState('');
   const busca = useAtrasado(termo);
   const r = useConsulta(async () => {
@@ -206,7 +206,7 @@ function BuscaProduto({ aoEscolher }) {
   );
 }
 
-function BuscaCliente({ cliente, aoEscolher }) {
+export function BuscaCliente({ cliente, aoEscolher }) {
   const [termo, setTermo] = useState('');
   const busca = useAtrasado(termo);
   const r = useConsulta(async () => {
@@ -423,6 +423,7 @@ function ConfigImpressora() {
         <select value={c.largura} onChange={set('largura')}>
           <option value="80">80 mm (Epson TM-T20, TM-T88…)</option>
           <option value="58">58 mm</option>
+          <option value="A4">Folha A4 (jato de tinta, ex.: Epson L42xx)</option>
         </select>
       </Campo>
       <Campo rotulo="Vias do cupom">
