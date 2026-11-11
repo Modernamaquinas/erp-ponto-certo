@@ -21,3 +21,5 @@ supa *.png
 certificado/
 *.pfx
 *.p12
+vercel *.jpg
+vercel *.png

@@ -1,7 +1,7 @@
 // Montagem da NFC-e/NF-e (api/_lib/fiscal/montar.js) e numeração (005_fiscal.sql).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { montarNota, gtin, cfopDestino, dataHoraSP, statusNota } from '../api/_lib/fiscal/montar.js';
+import { montarNota, gtin, cfopDestino, dataHoraSP, statusNota, documentoValido } from '../api/_lib/fiscal/montar.js';
 import { bancoDeTeste } from './pgteste.mjs';
 
 const ITEM = { codigo: 9535, descricao: 'FITA ISOLANTE 19MM', ncm: '70191400', cest: '2806100', cfop: 5405, csosn: '500',
@@ -13,7 +13,7 @@ const ITEM2 = { ...ITEM, codigo: 2, descricao: 'PARAFUSO', ncm: '73181500', cest
 test('NFC-e em homologação: totais, CSOSN, troco, pagamento integrado e texto obrigatório', () => {
   const { nota: n, total } = montarNota({ modelo: 65, ambiente: 'homologacao', serie: 10, numero: 7, itens: [ITEM, ITEM2], dhEmi: '2026-11-11T10:00:00-03:00',
     pagamentos: [{ forma: 'debito', valor: 20, cartao: { integrado: true, cnpj: '01027058000191', bandeira: 'ELECTRON', autorizacao: '201291' } },
-      { forma: 'dinheiro', valor: 10 }], destinatario: { cpf_cnpj: '044.404.240-74' } });
+      { forma: 'dinheiro', valor: 10 }], destinatario: { cpf_cnpj: '111.444.777-35' } });
   assert.deepEqual([n.cnpj_emitente, n.numero, n.serie, n.local_destino, n.presenca_comprador, n.modalidade_frete], ['11877694000166', '7', '10', 1, 1, 9]);
   assert.equal(n.data_emissao, '2026-11-11T10:00:00-03:00');
   assert.match(n.items[0].descricao, /HOMOLOGACAO - SEM VALOR FISCAL/);
@@ -27,7 +27,7 @@ test('NFC-e em homologação: totais, CSOSN, troco, pagamento integrado e texto 
   assert.deepEqual(n.formas_pagamento[0], { forma_pagamento: '04', valor_pagamento: 20, tipo_integracao: 1, cnpj_credenciadora: '01027058000191',
     bandeira_operadora: '01', numero_autorizacao: '201291' });
   assert.deepEqual(n.formas_pagamento[1], { forma_pagamento: '01', valor_pagamento: 10 });
-  assert.equal(n.cpf_destinatario, '04440424074');
+  assert.equal(n.cpf_destinatario, '11144477735');
   assert.equal(n.indicador_inscricao_estadual_destinatario, 9);
   // tributos aproximados: 24 x (13,45% + 18%) = 3,23 + 4,32
   assert.equal(n.items[0].valor_total_tributos, 7.55);
@@ -50,7 +50,7 @@ test('NF-e interestadual para contribuinte vira CFOP 6xxx e exige endereço', ()
     pagamentos: [{ forma: 'boleto', valor: 3.5 }] }).nota;
   assert.match(homolog.nome_destinatario, /HOMOLOGACAO/);
   assert.throws(() => montarNota({ modelo: 55, ambiente: 'producao', serie: 2, numero: 1, itens: [ITEM2],
-    destinatario: { nome: 'X', cpf_cnpj: '04440424074' }, pagamentos: [{ forma: 'dinheiro', valor: 5 }] }), /endereço completo/);
+    destinatario: { nome: 'X', cpf_cnpj: '11144477735' }, pagamentos: [{ forma: 'dinheiro', valor: 5 }] }), /endereço completo/);
 });
 
 test('validações que barram a nota antes de gastar número', () => {
@@ -60,9 +60,16 @@ test('validações que barram a nota antes de gastar número', () => {
   assert.throws(() => montarNota({ ...base, itens: [ITEM], pagamentos: [{ forma: 'debito', valor: 10 }] }), /menores que o total/);
   assert.throws(() => montarNota({ ...base, itens: [ITEM], pagamentos: [{ forma: 'debito', valor: 30 }] }), /Troco/);
   assert.throws(() => montarNota({ ...base, modelo: 55, itens: [ITEM] }), /destinatário/);
+  assert.throws(() => montarNota({ ...base, itens: [ITEM], destinatario: { cpf_cnpj: '12345678900' } }), /CPF do destinatário inválido/);
 });
 
 test('auxiliares', () => {
+  assert.equal(documentoValido('111.444.777-35'), true);
+  assert.equal(documentoValido('111.444.777-36'), false);
+  assert.equal(documentoValido('11.222.333/0001-81'), true);
+  assert.equal(documentoValido('11.222.333/0001-82'), false);
+  assert.equal(documentoValido('00000000000'), false);
+  assert.equal(documentoValido('11877694000166'), true);
   assert.equal(gtin('7898362380310'), '7898362380310');
   assert.equal(gtin('7898362380311'), 'SEM GTIN');
   assert.equal(gtin('123'), 'SEM GTIN');

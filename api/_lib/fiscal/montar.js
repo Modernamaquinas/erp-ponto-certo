@@ -22,6 +22,22 @@ const so = (v) => String(v ?? '').replace(/\D/g, '');
 
 export class ErroNota extends Error {}
 
+/** Confere os dígitos verificadores de CPF (11) ou CNPJ (14). */
+export function documentoValido(v) {
+  const d = so(v);
+  if (/^(\d)\1+$/.test(d)) return false;
+  const dv = (base, pesos) => { const r = base.split('').reduce((s, n, i) => s + Number(n) * pesos[i], 0) % 11; return r < 2 ? 0 : 11 - r; };
+  if (d.length === 11) {
+    const p = (n) => Array.from({ length: n }, (_, i) => n + 1 - i);
+    return dv(d.slice(0, 9), p(9)) === Number(d[9]) && dv(d.slice(0, 10), p(10)) === Number(d[10]);
+  }
+  if (d.length === 14) {
+    const p1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    return dv(d.slice(0, 12), p1) === Number(d[12]) && dv(d.slice(0, 13), [6, ...p1]) === Number(d[13]);
+  }
+  return false;
+}
+
 /** GTIN válido (8/12/13/14 dígitos com dígito verificador) ou 'SEM GTIN'. */
 export function gtin(v) {
   const d = so(v);
@@ -71,7 +87,7 @@ export function montarNota({ modelo, ambiente, serie, numero, itens, pagamentos,
   // destinatário
   const doc = so(destinatario?.cpf_cnpj);
   if (!nfce && !destinatario) throw new ErroNota('NF-e exige destinatário');
-  if (doc && ![11, 14].includes(doc.length)) throw new ErroNota('CPF/CNPJ do destinatário inválido');
+  if (doc && !documentoValido(doc)) throw new ErroNota(`${doc.length === 14 ? 'CNPJ' : 'CPF'} do destinatário inválido (confira o cadastro)`);
   const ufDest = destinatario?.endereco?.uf?.toUpperCase();
   const interestadual = !nfce && Boolean(ufDest) && ufDest !== emitente.uf;
   const ieDest = so(destinatario?.ie);
@@ -87,6 +103,9 @@ export function montarNota({ modelo, ambiente, serie, numero, itens, pagamentos,
   if (!nfce) {
     const e = destinatario.endereco;
     if (!e?.logradouro || !e?.cMun || !e?.uf || !e?.municipio) throw new ErroNota('NF-e exige o endereço completo do destinatário (com cidade)');
+    // a SEFAZ recusa logradouro/bairro com menos de 2 letras (cadastros antigos têm "C", ".")
+    if (String(e.logradouro).trim().length < 2) throw new ErroNota('Endereço do cliente incompleto (logradouro). Corrija o cadastro.');
+    if (e.bairro && String(e.bairro).trim().length < 2) throw new ErroNota('Bairro do cliente incompleto. Corrija o cadastro.');
     Object.assign(nota, {
       tipo_documento: 1, finalidade_emissao: 1, consumidor_final: contribuinte ? 0 : 1, data_entrada_saida: dhEmi,
       indicador_inscricao_estadual_destinatario: contribuinte ? 1 : 9,
