@@ -1,11 +1,11 @@
-// POST /api/fiscal  { acao, ... } — NFC-e/NF-e pela Nuvem Fiscal.
-//   status                       qualquer usuário: SEFAZ no ar? (+ se a Nuvem Fiscal está configurada)
-//   emitir   { modelo, ... }     NFC-e: qualquer usuário (caixa); NF-e: admin/financeiro
-//   consultar|pdf|xml { id }     qualquer usuário
+// POST /api/fiscal  { acao, ... } — NFC-e/NF-e pela Focus NFe.
+//   status                         qualquer usuário: token da Focus do ambiente atual é aceito?
+//   emitir   { modelo, ... }       NFC-e: qualquer usuário (caixa); NF-e: admin/financeiro
+//   consultar|danfe|xml { id }     qualquer usuário
 //   cancelar { id, justificativa } admin/financeiro
 import { supabaseServico, exigirUsuario, rota, ErroHttp } from './_lib/supabase.js';
-import { emitirNota, consultarNota, cancelarNota, pdfNota, xmlNota, statusSefaz, configFiscal } from './_lib/fiscal/emitir.js';
-import { nuvemFiscalConfigurada } from './_lib/fiscal/nuvemfiscal.js';
+import { emitirNota, consultarNota, cancelarNota, danfeNota, xmlNota, verificarFocus, configFiscal } from './_lib/fiscal/emitir.js';
+import { focusConfigurada } from './_lib/fiscal/focus.js';
 
 export const config = { maxDuration: 60 };
 const TODOS = ['admin', 'financeiro', 'vendedor'];
@@ -20,11 +20,9 @@ export default rota(async (req, res) => {
 
   switch (corpo.acao) {
     case 'status': {
-      const cfg = await configFiscal(sb);
-      if (!nuvemFiscalConfigurada()) return res.json({ configurada: false, ambiente: cfg.ambiente });
-      const [nfce, nfe] = await Promise.allSettled([statusSefaz(65), statusSefaz(55)]);
-      const ler = (r) => (r.status === 'fulfilled' ? r.value : { erro: r.reason.message });
-      return res.json({ configurada: true, ambiente: cfg.ambiente, nfce: ler(nfce), nfe: ler(nfe) });
+      const { ambiente } = await configFiscal(sb);
+      if (!focusConfigurada(ambiente)) return res.json({ configurada: false, ambiente });
+      return res.json({ configurada: true, ambiente, ...(await verificarFocus(ambiente)) });
     }
     case 'emitir':
       return res.json({ nota: await emitirNota(sb, usuario, corpo) });
@@ -32,8 +30,8 @@ export default rota(async (req, res) => {
       return res.json({ nota: await consultarNota(sb, id) });
     case 'cancelar':
       return res.json({ nota: await cancelarNota(sb, usuario, id, corpo.justificativa) });
-    case 'pdf':
-      return res.json(await pdfNota(sb, id));
+    case 'danfe':
+      return res.json(await danfeNota(sb, id));
     case 'xml':
       return res.json(await xmlNota(sb, id));
     default:

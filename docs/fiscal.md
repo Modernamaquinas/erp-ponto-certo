@@ -1,56 +1,57 @@
-# Emissão de NFC-e e NF-e (SEFAZ-RS via Nuvem Fiscal)
+# Emissão de NFC-e e NF-e (SEFAZ-RS via Focus NFe)
+
+A Nuvem Fiscal, escolhida antes, foi desativada em 2026 depois de ser comprada pelo ACBr. O provedor agora é a
+**Focus NFe** (https://doc.focusnfe.com.br, API v2).
 
 ## Como funciona
-- O ERP monta a nota (`api/_lib/fiscal/montar.js`) no layout 4.00 da SEFAZ e envia para a **Nuvem Fiscal**,
-  que assina com o certificado A1, transmite à SEFAZ-RS e gera o DANFE/DANFCE.
-- O **certificado A1** e o **CSC da NFC-e** ficam guardados na Nuvem Fiscal. Eles não passam pela Vercel e
-  não ficam no banco. Quem os envia é `npm run fiscal:configurar`, rodado no PC que tem o arquivo
-  `certificado/ponto-certo.pfx`. Essa pasta está no `.gitignore`.
+- O ERP monta a nota no formato da Focus (`api/_lib/fiscal/montar.js`) e envia para ela
+  (`api/_lib/fiscal/focus.js`). A Focus assina com o certificado A1, transmite à SEFAZ-RS e gera o DANFE
+  (PDF para NF-e, HTML para NFC-e).
+- Autenticação HTTP Basic: o token é o usuário e a senha fica vazia. Há três tokens:
+  - `FOCUS_TOKEN`: token principal da conta. Serve só para o cadastro da empresa (API de empresas, que só
+    existe no host de produção). Fica só no `.env` local.
+  - `FOCUS_TOKEN_HOMOLOGACAO` e `FOCUS_TOKEN_PRODUCAO`: tokens **da empresa**, usados na emissão. Ficam no
+    `.env` e na Vercel. O ambiente da nota segue **Notas Fiscais → Configuração**.
+- Certificado A1 e CSC ficam guardados na Focus. Quem os envia é `npm run fiscal:configurar`, rodado no PC que
+  tem `certificado/ponto-certo.pfx`. Essa pasta está no `.gitignore`.
+- A referência da nota na Focus é `notas_fiscais.referencia` (`pc-<modelo>-<série>-<número>-<h|p><tentativa>`).
+  A numeração é do ERP e vai nos campos `numero` e `serie`.
+- A NFC-e é síncrona. A NF-e é assíncrona: o ERP espera até cerca de 18 s e, se ainda estiver processando,
+  a nota aparece como "Processando" com o botão Consultar.
 - Regras da Ponto Certo, iguais às do DirectControl:
-  - Simples Nacional (CRT 1).
-  - CSOSN 102 (CFOP 5102) ou 500 (CFOP 5405).
-  - PIS/COFINS com CST 99 e valor zero.
-  - Tributos aproximados (IBPT) por NCM.
-  - Na NF-e para fora do RS, o CFOP 5xxx vira 6xxx.
-- **Séries próprias do ERP:** NFC-e série 10 e NF-e série 2. O DirectControl usa NF-e série 1 e NFC-e séries
-  3 e 5. Assim os dois sistemas podem emitir ao mesmo tempo sem colidir na numeração.
-- **Numeração:** `reservar_numero_fiscal`. Quando a SEFAZ rejeita uma nota, o número dela é reaproveitado
-  na próxima, para não abrir buraco. Se a SEFAZ não responder (status `erro`), use "Consultar" antes de
-  emitir de novo.
+  - Simples Nacional;
+  - CSOSN 102 (CFOP 5102) ou 500 (CFOP 5405); 300, 400 e 900 também são aceitos;
+  - PIS/COFINS com CST 99 e valor zero;
+  - tributos aproximados (IBPT) calculados pelo ERP (`discrimina_impostos` desligado na Focus);
+  - na NF-e para fora do RS, o CFOP 5xxx vira 6xxx.
+- **Séries do ERP:** NFC-e série 10 e NF-e série 2. O DirectControl usa NF-e série 1 e NFC-e séries 3 e 5.
+- **Numeração:** `reservar_numero_fiscal`. Uma nota recusada (pela Focus ou pela SEFAZ) devolve o número, que é
+  usado na próxima. Se não houver resposta (status `erro`), use "Consultar" antes de emitir de novo.
 
-## Dados vindos do DirectControl
-- Emitente, conforme `PARAMETROSNFE`:
-  - CNPJ 11.877.694/0001-66, IE 0290521327, Caxias do Sul/RS (IBGE 4305108);
-  - regime Simples Nacional;
-  - CSC da NFC-e: id 1. O código foi copiado para `NFCE_CSC` no `.env` local.
-- Certificado: e-CNPJ A1, válido até 12/06/2027.
-- Produtos:
-  - NCM e CEST vêm da tabela `NCM` (`PRODUTOS_IMPOSTOS.NCM` está quase sempre vazio);
-  - origem vem de `CST1`;
-  - CSOSN vem de `CST2`;
-  - percentuais IBPT vêm da tabela `NCM`.
+## Situação em 11/11/2026
+- A empresa está cadastrada na Focus pelo script, com certificado (válido até 12/06/2027), CSC de produção (id 1)
+  e séries 10/2.
+- Teste na SEFAZ-RS de **homologação**, feito fora do ERP, com números 999001:
+  - NF-e e NFC-e autorizadas (código 100);
+  - DANFE e XML baixados;
+  - as duas canceladas (código 135).
+- Não foi informado CSC de homologação, e a NFC-e foi autorizada mesmo assim. Se a SEFAZ passar a exigir, gere
+  o CSC de homologação no portal da SEFAZ-RS e preencha `NFCE_CSC_HOMOLOGACAO` / `NFCE_ID_CSC_HOMOLOGACAO`.
 
-## Instalação (uma vez)
-1. Crie a conta em nuvemfiscal.com.br. Em **Credenciais de API**, gere o *client id* e o *client secret*.
-2. Preencha no `.env` local: `NUVEMFISCAL_CLIENT_ID`, `NUVEMFISCAL_CLIENT_SECRET` e `EMPRESA_EMAIL` (o e-mail
-   que vai no cadastro da empresa). A senha do certificado e o CSC já estão lá.
-3. Rode `npm run fiscal:configurar`. Ele cadastra a empresa, instala o certificado, configura a NFC-e (com o
-   CSC) e a NF-e em **homologação**, e consulta o status da SEFAZ.
-4. Na Vercel, cadastre `NUVEMFISCAL_CLIENT_ID`, `NUVEMFISCAL_CLIENT_SECRET` e `NUVEMFISCAL_API=producao`, e
-   faça o redeploy.
-5. No ERP, em **Notas Fiscais**:
-   - clique em "Verificar SEFAZ";
+## Passos que faltam
+1. Na Vercel, cadastre `FOCUS_TOKEN_HOMOLOGACAO` e `FOCUS_TOKEN_PRODUCAO` (os valores estão no `.env`) e faça o
+   redeploy.
+2. No ERP, em **Notas Fiscais**:
+   - clique em "Verificar conexão";
    - emita uma NFC-e e uma NF-e de teste;
-   - confira o DANFE;
-   - teste o cancelamento.
-6. Para começar a valer de verdade:
-   - rode `npm run fiscal:configurar -- producao`;
-   - no ERP, mude **Configuração → Ambiente** para Produção (só o admin vê essa aba).
+   - abra o DANFE;
+   - cancele as duas.
+3. Para valer de verdade: **Configuração → Ambiente → Produção** (só o admin vê essa aba).
 
 ## Cuidados
 - Enquanto o caixa estiver no DirectControl, não emita no ERP uma nota de venda que já saiu com NFC-e lá.
 - Prazos de cancelamento: NFC-e até 30 minutos, NF-e até 24 horas. Depois disso, só com nota de devolução,
   que ainda não está no ERP.
 - O certificado vence em 12/06/2027. Para renovar, troque o arquivo e rode `npm run fiscal:configurar` de novo.
-- Produto sem NCM, ou com CSOSN 101/201/202, é barrado antes de gastar número. Corrija o cadastro no
-  DirectControl, e a sincronização traz a correção.
+  Use `-- --simular` para validar antes.
+- Produto sem NCM, ou com CSOSN 101/201/202, é barrado antes de gastar número.

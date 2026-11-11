@@ -4,7 +4,7 @@ import { moeda, numero, data, dataHora, documento, hoje, somarDias, filtrarBusca
 import { navegar, usePerfil, podeFinanceiro } from '../lib/contexto.js';
 import { Pagina, Filtros, Campo, Tabela, Paginacao, Modal, Etiqueta, Aviso, Detalhes, useConsulta, useAtrasado, useAvisar } from '../componentes/ui.jsx';
 
-// NFC-e (65) e NF-e (55) emitidas pelo ERP via Nuvem Fiscal. As notas do DirectControl continuam lá (Fase 1).
+// NFC-e (65) e NF-e (55) emitidas pelo ERP via Focus NFe. As notas do DirectControl continuam lá (Fase 1).
 const POR_PAGINA = 50;
 const STATUS = {
   processando: ['info', 'Processando'], autorizada: ['ok', 'Autorizada'], rejeitada: ['alerta', 'Rejeitada'],
@@ -15,10 +15,12 @@ const FORMAS = [['dinheiro', 'Dinheiro'], ['pix', 'PIX'], ['debito', 'Cartão de
   ['boleto', 'Boleto'], ['crediario', 'Crediário da loja'], ['transferencia', 'Transferência'], ['outros', 'Outros']];
 const etiqueta = (s) => <Etiqueta tipo={STATUS[s]?.[0]}>{STATUS[s]?.[1] || s}</Etiqueta>;
 
-function baixar({ nome, base64 }, tipo) {
+// DANFE (PDF) e DANFCE (HTML) abrem numa aba; XML é baixado.
+function abrirArquivo({ nome, base64, tipo }) {
   const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-  const url = URL.createObjectURL(new Blob([bytes], { type: tipo }));
-  if (tipo === 'application/pdf') window.open(url, '_blank', 'noopener');
+  const mime = (tipo || '').split(';')[0] || 'application/octet-stream';
+  const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
+  if (/pdf|html/.test(mime)) window.open(url, '_blank', 'noopener');
   else { const a = document.createElement('a'); a.href = url; a.download = nome; a.click(); }
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
@@ -30,7 +32,7 @@ export default function NotasFiscais({ params }) {
   const abas = [['notas', 'Notas emitidas'], ['emitir', 'Emitir nota'], ...(perfil.papel === 'admin' ? [['config', 'Configuração']] : [])];
   const ambiente = cfg.dados?.ambiente;
   return (
-    <Pagina titulo="Notas Fiscais" subtitulo="NFC-e e NF-e emitidas pelo ERP (SEFAZ-RS, via Nuvem Fiscal)"
+    <Pagina titulo="Notas Fiscais" subtitulo="NFC-e e NF-e emitidas pelo ERP (SEFAZ-RS, via Focus NFe)"
       acoes={ambiente && <Etiqueta tipo={ambiente === 'producao' ? 'ok' : 'alerta'}>{ambiente === 'producao' ? 'Produção' : 'Homologação (teste, sem valor fiscal)'}</Etiqueta>}>
       <div className="abas" role="tablist">
         {abas.map(([id, rotulo]) => (
@@ -51,17 +53,15 @@ function StatusSefaz() {
   const [carregando, setCarregando] = useState(false);
   async function verificar() {
     setCarregando(true);
-    try { setS(await api('fiscal', { corpo: { acao: 'status' } })); } catch (e) { setS({ erro: e.message }); }
+    try { setS(await api('fiscal', { corpo: { acao: 'status' } })); } catch (e) { setS({ ok: false, erro: e.message }); }
     setCarregando(false);
   }
-  const linha = (rotulo, x) => x && (x.erro ? <span>{rotulo}: <span className="texto-erro">{x.erro}</span></span>
-    : <span>{rotulo}: <strong>{x.codigo_status} {x.motivo_status}</strong>{x.tempo_medio_resposta ? ` (${x.tempo_medio_resposta}s)` : ''}</span>);
   return (
     <div className="resumo-linha">
-      <button type="button" className="btn btn-sec btn-peq" onClick={verificar} disabled={carregando}>{carregando ? 'Consultando…' : 'Verificar SEFAZ'}</button>
+      <button type="button" className="btn btn-sec btn-peq" onClick={verificar} disabled={carregando}>{carregando ? 'Verificando…' : 'Verificar conexão'}</button>
       {s?.erro && <span className="texto-erro">{s.erro}</span>}
-      {s && s.configurada === false && <span className="texto-erro">Nuvem Fiscal ainda não configurada na Vercel (NUVEMFISCAL_CLIENT_ID/SECRET).</span>}
-      {s?.configurada && <>{linha('NFC-e', s.nfce)}{linha('NF-e', s.nfe)}</>}
+      {s && s.configurada === false && <span className="texto-erro">Focus NFe sem token de {s.ambiente} na Vercel (FOCUS_TOKEN_{String(s.ambiente).toUpperCase()}).</span>}
+      {s?.configurada && s.ok && <span>Focus NFe conectada ({s.ambiente}) ✓</span>}
     </div>
   );
 }
@@ -85,8 +85,7 @@ function ListaNotas() {
   async function acao(nota, acao) {
     try {
       const r = await api('fiscal', { corpo: { acao, id: nota.id } });
-      if (acao === 'pdf') baixar(r, 'application/pdf');
-      else if (acao === 'xml') baixar(r, 'application/xml');
+      if (acao === 'danfe' || acao === 'xml') abrirArquivo(r);
       else { avisar(`Situação: ${STATUS[r.nota.status]?.[1] || r.nota.status}`); setAberta(r.nota); lista.recarregar(); }
     } catch (e) { avisar(e.message, 'erro'); }
   }
@@ -114,7 +113,7 @@ function ListaNotas() {
           { titulo: 'Valor', alinhar: 'dir', render: (n) => moeda(n.valor_total) },
           { titulo: 'Situação', render: (n) => etiqueta(n.status) },
           { titulo: '', render: (n) => (['autorizada', 'cancelada'].includes(n.status)
-            ? <button type="button" className="btn btn-sec btn-peq" onClick={(e) => { e.stopPropagation(); acao(n, 'pdf'); }}>DANFE</button>
+            ? <button type="button" className="btn btn-sec btn-peq" onClick={(e) => { e.stopPropagation(); acao(n, 'danfe'); }}>DANFE</button>
             : ['processando', 'erro'].includes(n.status)
               ? <button type="button" className="btn btn-sec btn-peq" onClick={(e) => { e.stopPropagation(); acao(n, 'consultar'); }}>Consultar</button> : null) },
         ]} />
@@ -143,7 +142,7 @@ function DetalheNota({ nota: n, aoFechar, aoAcao, aoCancelar }) {
       rodape={<>
         {['autorizada', 'cancelada'].includes(n.status) && <>
           <button type="button" className="btn btn-sec" onClick={() => aoAcao(n, 'xml')}>XML</button>
-          <button type="button" className="btn btn-sec" onClick={() => aoAcao(n, 'pdf')}>DANFE</button>
+          <button type="button" className="btn btn-sec" onClick={() => aoAcao(n, 'danfe')}>DANFE</button>
         </>}
         {['processando', 'erro'].includes(n.status) && <button type="button" className="btn btn-sec" onClick={() => aoAcao(n, 'consultar')}>Consultar SEFAZ</button>}
         {n.status === 'autorizada' && podeFinanceiro(perfil) && !cancelando &&
@@ -359,7 +358,7 @@ function Configuracao({ cfg, aoSalvar }) {
       <Campo rotulo="Série da NF-e"><input type="number" min="1" max="889" value={c.serie_nfe} onChange={set('serie_nfe')} /></Campo>
       <Campo rotulo="Texto fixo nas informações complementares" largo><input value={c.inf_complementar} onChange={set('inf_complementar')} maxLength={500} /></Campo>
       <p className="texto-fraco campo-largo">O DirectControl usa NF-e série 1 e NFC-e séries 3 e 5. Mantenha séries diferentes enquanto os dois emitirem.
-        Certificado e CSC ficam na Nuvem Fiscal (instalados pelo script <code>npm run fiscal:configurar</code>).</p>
+        Certificado e CSC ficam na Focus NFe (instalados pelo script <code>npm run fiscal:configurar</code>).</p>
       <div className="form-acoes"><button type="submit" className="btn btn-pri" disabled={salvando}>{salvando ? 'Salvando…' : 'Salvar'}</button></div>
     </form>
   );

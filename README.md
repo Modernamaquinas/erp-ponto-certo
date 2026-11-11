@@ -10,7 +10,7 @@ Stack: React + Vite (frontend) · Supabase/Postgres (dados, login, RLS) · funç
 | Fase | O que roda no ERP | O que continua no DirectControl |
 |---|---|---|
 | **1 (esta)** | Painel, crediário/contas a receber, **cobrança Asaas**, contas a pagar, consultas de clientes, produtos, fornecedores, vendas, compras e caixa | PDV, NFC-e/NF-e, TEF, cadastro de produtos/preços/clientes |
-| 2 | PDV web, NFC-e e NF-e por API fiscal (Focus NFe / Nuvem Fiscal), cadastros editáveis, entrada de notas por XML | — |
+| 2 | PDV web, NFC-e e NF-e por API fiscal (Focus NFe; emissão pronta, ver docs/fiscal.md), cadastros editáveis, entrada de notas por XML | — |
 | 3 | Desligar o DirectControl | — |
 
 Na Fase 1, o DirectControl é **só lido** (nunca alterado). Uma sincronização a cada 15 min traz as novidades

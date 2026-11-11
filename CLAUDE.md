@@ -11,8 +11,8 @@ ERP web da Ponto Certo Ferragens (pt-BR), substituindo o DirectControl/Acertsoft
   `003_cartoes.sql` (TEF/taxas/recebíveis, roda no PGlite) + `004_cartoes_seguranca.sql` (RLS dele).
   `005_fiscal.sql` (notas_fiscais, numeração, campos fiscais de produtos) + `006_fiscal_seguranca.sql`.
   Aplicar em banco existente: `node scripts/aplicar-sql.mjs <arquivos>`.
-- `api/fiscal.js` + `api/_lib/fiscal/`: NFC-e/NF-e pela Nuvem Fiscal (ver docs/fiscal.md). Certificado A1 e CSC só no
-  `.env` local e na Nuvem Fiscal (`npm run fiscal:configurar`); `certificado/` e `*.pfx` nunca vão para o git.
+- `api/fiscal.js` + `api/_lib/fiscal/`: NFC-e/NF-e pela Focus NFe (ver docs/fiscal.md). Certificado A1 e CSC só no
+  `.env` local e na Focus NFe (`npm run fiscal:configurar`); `certificado/` e `*.pfx` nunca vão para o git.
   Séries do ERP (NFC-e 10, NF-e 2) diferentes das do DirectControl (NF-e 1, NFC-e 3 e 5).
 - `scripts/migracao/`: leitura do Firebird 2.5 (WIN1252, `node-firebird` com conexão UTF8) e upsert no
   Postgres. Mesmo código faz a carga completa e a sincronização incremental (`--incremental`).

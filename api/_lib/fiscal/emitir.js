@@ -1,10 +1,12 @@
-// Emissão, consulta, cancelamento e DANFE de NFC-e/NF-e (Nuvem Fiscal). Usado por api/fiscal.js.
-import { montarNota, statusNota, ErroNota, EMITENTE } from './montar.js';
-import { nuvemFiscal, ErroNuvemFiscal } from './nuvemfiscal.js';
+// Emissão, consulta, cancelamento e DANFE de NFC-e/NF-e (Focus NFe). Usado por api/fiscal.js.
+// A referência (ref) da Focus é a nossa `notas_fiscais.referencia`; a numeração é do ERP (campos numero/serie).
+import { montarNota, statusNota, ErroNota } from './montar.js';
+import { focus, arquivoFocus, ErroFocus } from './focus.js';
 
 const ou = (r) => { if (r.error) throw new Error(r.error.message); return r; };
 const tipo = (modelo) => (modelo === 65 ? 'nfce' : 'nfe');
 const erro400 = (m) => Object.assign(new Error(m), { status: 400 });
+const esperar = (ms) => new Promise((ok) => setTimeout(ok, ms));
 
 export async function configFiscal(sb) {
   return ou(await sb.from('fiscal_config').select('*').eq('id', 1).single()).data;
@@ -60,35 +62,41 @@ export async function emitirNota(sb, usuario, corpo) {
   try { montarNota({ ...base, numero: 1 }); } catch (e) { if (e instanceof ErroNota) throw erro400(e.message); throw e; }
 
   const reserva = ou(await sb.rpc('reservar_numero_fiscal', { p_modelo: modelo, p_serie: serie, p_ambiente: ambiente })).data[0];
-  const referencia = `${modelo}-${serie}-${reserva.numero}-${ambiente === 'producao' ? 'p' : 'h'}-${reserva.tentativa}`;
-  const payload = montarNota({ ...base, numero: reserva.numero, referencia });
-  const total = payload.infNFe.total.ICMSTot.vNF;
+  const referencia = `pc-${modelo}-${serie}-${reserva.numero}-${ambiente === 'producao' ? 'p' : 'h'}${reserva.tentativa}`;
+  const { nota: payload, total } = montarNota({ ...base, numero: reserva.numero });
 
   const nota = ou(await sb.from('notas_fiscais').insert({
-    modelo, serie, numero: reserva.numero, ambiente, tentativa: reserva.tentativa, referencia, venda_id: corpo.venda_id || null,
-    cliente_id: destinatario?.cliente_id || null, destinatario_nome: destinatario?.nome || null,
+    modelo, serie, numero: reserva.numero, ambiente, tentativa: reserva.tentativa, referencia, provedor_id: referencia,
+    venda_id: corpo.venda_id || null, cliente_id: destinatario?.cliente_id || null, destinatario_nome: destinatario?.nome || null,
     destinatario_doc: destinatario?.cpf_cnpj ? String(destinatario.cpf_cnpj).replace(/\D/g, '') : null,
     valor_total: total, payload, usuario: usuario.nome,
   }).select().single()).data;
 
   let resp;
   try {
-    resp = await nuvemFiscal('POST', `/${tipo(modelo)}`, payload);
+    resp = await focus(ambiente, 'POST', `/v2/${tipo(modelo)}?ref=${encodeURIComponent(referencia)}`, payload);
   } catch (e) {
-    // 4xx = recusado pela Nuvem Fiscal antes da SEFAZ (número não usado); falha de rede/5xx = situação incerta
-    const recusado = e instanceof ErroNuvemFiscal && e.statusOriginal < 500;
-    return atualizarNota(sb, nota.id, { status: recusado ? 'rejeitada' : 'erro', motivo: e.message });
+    if (e instanceof ErroFocus && e.statusOriginal < 500 && !['pending_operation', 'already_processed'].includes(e.codigo)) {
+      // recusada pela Focus antes da SEFAZ (validação/cadastro): o número não foi usado
+      return atualizarNota(sb, nota.id, { status: 'rejeitada', motivo: e.message, codigo_status: null });
+    }
+    return atualizarNota(sb, nota.id, { status: 'erro', motivo: e.message });
+  }
+  // NF-e é assíncrona: espera um pouco a SEFAZ antes de devolver
+  for (let i = 0; resp.status === 'processando_autorizacao' && i < 6; i++) {
+    await esperar(3000);
+    resp = await focus(ambiente, 'GET', `/v2/${tipo(modelo)}/${encodeURIComponent(referencia)}`).catch(() => resp);
   }
   return gravarRetorno(sb, nota.id, resp);
 }
 
 function camposDoRetorno(resp) {
-  const a = resp.autorizacao || {};
-  return {
-    provedor_id: resp.id, status: statusNota(resp.status), chave: resp.chave || a.chave_acesso || null,
-    protocolo: a.numero_protocolo || null, codigo_status: a.codigo_status ?? null,
-    motivo: a.motivo_status || a.mensagem || null, emitida_em: resp.data_emissao || null,
+  const c = {
+    status: statusNota(resp.status), chave: resp.chave_nfe || null, protocolo: resp.protocolo || resp.numero_protocolo || null,
+    codigo_status: resp.status_sefaz ? Number(resp.status_sefaz) || null : null, motivo: resp.mensagem_sefaz || resp.mensagem || null,
   };
+  if (c.status === 'autorizada') c.emitida_em = resp.data_emissao || new Date().toISOString();
+  return c;
 }
 
 async function atualizarNota(sb, id, campos) {
@@ -105,17 +113,20 @@ async function lerNota(sb, id) {
   return n;
 }
 
-/** Reconsulta a situação (útil para 'processando' e 'erro'). */
+const caminhoNota = (n) => `/v2/${tipo(n.modelo)}/${encodeURIComponent(n.referencia)}`;
+
+/** Reconsulta a situação (para 'processando' e 'erro'). */
 export async function consultarNota(sb, id) {
   const n = await lerNota(sb, id);
-  if (n.provedor_id) return gravarRetorno(sb, n.id, await nuvemFiscal('GET', `/${tipo(n.modelo)}/${n.provedor_id}`));
-  // sem id: procura pela referência (a chamada pode ter chegado à Nuvem Fiscal antes da falha de rede)
-  const q = new URLSearchParams({ cpf_cnpj: EMITENTE.cnpj, ambiente: n.ambiente, referencia: n.referencia });
-  const lista = await nuvemFiscal('GET', `/${tipo(n.modelo)}?${q}`);
-  const achada = lista?.data?.[0];
-  if (achada) return gravarRetorno(sb, n.id, achada);
-  // não chegou: o número fica livre para a próxima nota
-  return atualizarNota(sb, n.id, n.status === 'erro' ? { status: 'rejeitada', motivo: `${n.motivo || ''} (não chegou à SEFAZ)`.trim() } : {});
+  try {
+    return gravarRetorno(sb, n.id, await focus(n.ambiente, 'GET', caminhoNota(n)));
+  } catch (e) {
+    // 404 = a chamada nunca chegou à Focus: o número fica livre para a próxima nota
+    if (e instanceof ErroFocus && e.statusOriginal === 404 && n.status === 'erro') {
+      return atualizarNota(sb, n.id, { status: 'rejeitada', motivo: `${n.motivo || ''} (não chegou à SEFAZ)`.trim() });
+    }
+    throw e;
+  }
 }
 
 export async function cancelarNota(sb, usuario, id, justificativa) {
@@ -123,29 +134,34 @@ export async function cancelarNota(sb, usuario, id, justificativa) {
   if (j.length < 15 || j.length > 255) throw erro400('A justificativa precisa ter de 15 a 255 caracteres');
   const n = await lerNota(sb, id);
   if (n.status !== 'autorizada') throw erro400('Só nota autorizada pode ser cancelada');
-  const ev = await nuvemFiscal('POST', `/${tipo(n.modelo)}/${n.provedor_id}/cancelamento`, { justificativa: j });
-  if (ev.status !== 'registrado') {
-    throw erro400(`SEFAZ não registrou o cancelamento: ${ev.motivo_status || ev.mensagem || ev.status}`);
+  const r = await focus(n.ambiente, 'DELETE', caminhoNota(n), { justificativa: j });
+  if (r.status !== 'cancelado') throw erro400(`SEFAZ não registrou o cancelamento: ${r.mensagem_sefaz || r.status}`);
+  return atualizarNota(sb, n.id, { status: 'cancelada', cancelada_em: new Date().toISOString(),
+    justificativa_cancelamento: j, motivo: r.mensagem_sefaz || n.motivo });
+}
+
+async function baixarArquivo(sb, id, campo) {
+  const n = await lerNota(sb, id);
+  if (!['autorizada', 'cancelada'].includes(n.status)) throw erro400('Nota sem autorização da SEFAZ');
+  const dados = await focus(n.ambiente, 'GET', caminhoNota(n));
+  const caminho = dados[campo];
+  if (!caminho) throw erro400('Arquivo ainda não disponível na Focus NFe');
+  const arq = await arquivoFocus(n.ambiente, caminho);
+  const ext = caminho.split('?')[0].split('.').pop().toLowerCase();
+  return { nome: `${tipo(n.modelo)}-${n.serie}-${n.numero}.${ext}`, tipo: arq.tipo, base64: arq.dados.toString('base64') };
+}
+
+/** DANFE (NF-e, PDF) ou DANFCE (NFC-e, HTML). */
+export const danfeNota = (sb, id) => baixarArquivo(sb, id, 'caminho_danfe');
+export const xmlNota = (sb, id) => baixarArquivo(sb, id, 'caminho_xml_nota_fiscal');
+
+/** A Focus não tem consulta de status da SEFAZ; confere se o token do ambiente é aceito. */
+export async function verificarFocus(ambiente) {
+  try {
+    await focus(ambiente, 'GET', '/v2/nfce/pc-verificacao-conexao', null, { timeout: 15000 });
+    return { ok: true };
+  } catch (e) {
+    if (e instanceof ErroFocus && e.statusOriginal === 404) return { ok: true };
+    return { ok: false, erro: e.message };
   }
-  return atualizarNota(sb, n.id, { status: 'cancelada', cancelada_em: ev.data_evento || new Date().toISOString(),
-    justificativa_cancelamento: j, motivo: ev.motivo_status || n.motivo });
-}
-
-/** DANFE (NF-e) ou DANFCE (NFC-e) em PDF, base64. */
-export async function pdfNota(sb, id) {
-  const n = await lerNota(sb, id);
-  if (!n.provedor_id) throw erro400('Nota sem retorno da SEFAZ');
-  const pdf = await nuvemFiscal('GET', `/${tipo(n.modelo)}/${n.provedor_id}/pdf`, null, { binario: true });
-  return { nome: `${tipo(n.modelo)}-${n.serie}-${n.numero}.pdf`, base64: pdf.toString('base64') };
-}
-
-export async function xmlNota(sb, id) {
-  const n = await lerNota(sb, id);
-  if (!n.provedor_id) throw erro400('Nota sem retorno da SEFAZ');
-  const xml = await nuvemFiscal('GET', `/${tipo(n.modelo)}/${n.provedor_id}/xml`, null, { binario: true });
-  return { nome: `${n.chave || `${tipo(n.modelo)}-${n.numero}`}.xml`, base64: xml.toString('base64') };
-}
-
-export async function statusSefaz(modelo = 65) {
-  return nuvemFiscal('GET', `/${tipo(modelo)}/sefaz/status?cpf_cnpj=${EMITENTE.cnpj}`);
 }
