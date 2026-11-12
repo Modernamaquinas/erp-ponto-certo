@@ -36,3 +36,8 @@ ERP web da Ponto Certo Ferragens (pt-BR), substituindo o DirectControl/Acertsoft
   com a Cielo. `TEF_TRANSACAO.DATA_HORA_LOCAL` não tem ano (`dataHoraTef`). O PDV da Fase 2 fala com um agente local
   no PC do caixa (`src/lib/tef.js`, contrato em `docs/tef-cielo.md`) e grava via `pdv_registrar_tef`.
 - `npm test` usa PGlite (tests/pgteste.mjs). Com `FDB_TESTE` aponta para um .fdb restaurado e roda a migração real.
+- Pré-venda (`/prevenda`, `PreVenda.jsx`): o vendedor monta no celular (câmera: `src/lib/camera.js`, BarcodeDetector nativo ou
+  ponyfill `barcode-detector` no iPhone) e grava um orçamento `tipo='prevenda'` com o nome do cliente (014). O caixa abre pelo
+  botão "Pré-vendas" do PDV (`/pdv?orcamento=id`); a venda, o estoque e a NFC-e só acontecem lá. A câmera exige https.
+- Etiquetas: modelos do DirectControl em `etiqueta_modelos/campos` (012/013); `src/lib/etiquetas.js` gera PPLA idêntico ao
+  `C:\EASYCONTROL\ETIQUETA.TXT` (teste de referência). A sincronização só acrescenta modelos novos (`apenasNovos`).

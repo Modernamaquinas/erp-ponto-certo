@@ -91,6 +91,25 @@ test('orçamento: salva sem mexer no estoque, edita e vira venda', async () => {
   } finally { await db.close(); }
 });
 
+test('pré-venda: exige nome do cliente, fica aberta para o caixa e vira venda uma vez só', async () => {
+  const db = await preparar();
+  try {
+    const itens = [{ produto_id: 5, quantidade: 1, preco_unitario: 10 }];
+    await assert.rejects(db.query('select salvar_orcamento($1)', [JSON.stringify({ operador_codigo: '1234', tipo: 'prevenda', cliente_nome: '  ', itens })]),
+      /nome do cliente/);
+    const pv = Number((await um(db, 'select salvar_orcamento($1) as id', [JSON.stringify({ operador_codigo: '1234', tipo: 'prevenda', cliente_nome: ' joão da obra ', itens })])).id);
+    assert.deepEqual(await um(db, 'select tipo, status, cliente_nome, total::text from orcamentos where id = $1', [pv]),
+      { tipo: 'prevenda', status: 'aberto', cliente_nome: 'JOÃO DA OBRA', total: '10.00' });
+    assert.equal((await um(db, 'select estoque::text from produtos where id = 5')).estoque, '3.000');
+    const id = await venda(db, { operador_codigo: '1234', orcamento_id: pv, itens, pagamentos: [{ forma: 'dinheiro', valor: 10 }] });
+    assert.deepEqual(await um(db, 'select status, venda_id::int as v from orcamentos where id = $1', [pv]), { status: 'convertido', v: id });
+    await assert.rejects(venda(db, { operador_codigo: '1234', orcamento_id: pv, itens, pagamentos: [{ forma: 'dinheiro', valor: 10 }] }), /não está aberto/);
+    // orçamento comum continua sem exigir nome
+    const o = Number((await um(db, 'select salvar_orcamento($1) as id', [JSON.stringify({ operador_codigo: '1234', itens })])).id);
+    assert.equal((await um(db, 'select tipo from orcamentos where id = $1', [o])).tipo, 'orcamento');
+  } finally { await db.close(); }
+});
+
 test('rateio do desconto geral entre os itens (NFC-e)', () => {
   const r = ratearDesconto([{ quantidade: 2, preco_unitario: 10, desconto: 0 }, { quantidade: 1, preco_unitario: 30, desconto: 1 }], 5);
   assert.deepEqual(r.map((i) => i.desconto), [2.04, 3.96]);

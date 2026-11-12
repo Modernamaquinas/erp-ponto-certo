@@ -41,7 +41,7 @@ export default function Orcamentos() {
       </Filtros>
       <Tabela carregando={lista.carregando} erro={lista.erro} linhas={lista.dados} aoClicar={setAberto} vazio="Nenhum orçamento."
         colunas={[
-          { titulo: 'Nº', campo: 'id', classe: 'cod' },
+          { titulo: 'Nº', render: (o) => <><span className="cod">{o.id}</span>{o.tipo === 'prevenda' && <> <Etiqueta tipo="info">pré-venda</Etiqueta></>}</> },
           { titulo: 'Data', render: (o) => data(o.data) },
           { titulo: 'Cliente', render: (o) => o.clientes?.nome || o.cliente_nome || 'CONSUMIDOR' },
           { titulo: 'Operador', render: (o) => o.operadores?.nome || (o.vendedor_legado ? `vendedor ${o.vendedor_legado}` : '') },

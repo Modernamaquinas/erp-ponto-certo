@@ -300,3 +300,32 @@ button.cartao:hover { border-color: var(--marca); }
 .pdv-codigo { width: 180px; height: 56px; font-size: 32px; letter-spacing: 14px; text-align: center; border: 2px solid var(--borda); border-radius: 10px; background: var(--superficie); color: var(--texto); }
 .pdv-codigo:focus { border-color: var(--marca); outline: none; }
 @media (max-width: 900px) { .pdv { grid-template-columns: 1fr; } .pdv-lateral { position: static; } }
+
+/* ---- pré-venda pelo celular (2026-11-12) */
+.pv { max-width: 640px; margin: 0 auto; padding-bottom: 96px; }
+.pv-grande { width: 100%; min-height: 52px; font-size: 17px; }
+.pv-acoes { margin: 10px 0 4px; }
+.pv-itens { list-style: none; margin: 10px 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.pv-itens li { background: var(--superficie); border: 1px solid var(--borda); border-radius: 10px; padding: 10px 12px; }
+.pv-item-nome { font-size: 15px; margin-bottom: 8px; overflow-wrap: anywhere; }
+.pv-item-linha { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-variant-numeric: tabular-nums; }
+.pv-qtd { display: inline-flex; align-items: center; border: 1px solid var(--borda); border-radius: 8px; overflow: hidden; }
+.pv-qtd button { width: 44px; height: 44px; border: 0; background: var(--fundo); color: var(--texto); font-size: 22px; cursor: pointer; }
+.pv-qtd input { width: 56px; height: 44px; border: 0; text-align: center; font-size: 17px; background: var(--superficie); color: var(--texto); }
+.pv-rodape { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; gap: 12px; align-items: center; padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  background: var(--superficie); border-top: 1px solid var(--borda); box-shadow: 0 -4px 12px rgba(0,0,0,.08); }
+.pv-rodape > div { display: flex; flex-direction: column; min-width: 96px; }
+.pv-total-barra { font-size: 20px; color: var(--marca); font-variant-numeric: tabular-nums; }
+.pv-links { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.pv-camera { position: fixed; inset: 0; z-index: 100; background: #000; display: flex; flex-direction: column; }
+.pv-camera video { flex: 1; width: 100%; min-height: 0; object-fit: cover; }
+.pv-mira { position: absolute; left: 10%; right: 10%; top: 35%; height: 18%; border: 3px solid rgba(255,255,255,.85); border-radius: 12px; box-shadow: 0 0 0 9999px rgba(0,0,0,.35); pointer-events: none; }
+.pv-camera-info { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px calc(14px + env(safe-area-inset-bottom)); background: var(--superficie); color: var(--texto); }
+.pv-enviada { max-width: 420px; margin: 40px auto; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.pv-ok { font-size: 48px; color: var(--ok, #1a7f37); }
+.pv-enviada h2 { margin: 0; font-size: 19px; }
+.pv-cliente { font-size: 22px; font-weight: 700; margin: 4px 0 0; overflow-wrap: anywhere; }
+.pv-total { font-size: 26px; color: var(--marca); margin: 0 0 8px; font-variant-numeric: tabular-nums; }
+.pv-abertas { list-style: none; margin: 0; padding: 0; }
+.pv-abertas li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--borda); }
+.pv-abertas li > div { min-width: 0; overflow-wrap: anywhere; }

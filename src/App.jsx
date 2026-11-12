@@ -16,6 +16,7 @@ import Cartoes from './paginas/Cartoes.jsx';
 import NotasFiscais from './paginas/NotasFiscais.jsx';
 import PDV from './paginas/PDV.jsx';
 import Orcamentos from './paginas/Orcamentos.jsx';
+import PreVenda from './paginas/PreVenda.jsx';
 import Vendas from './paginas/Vendas.jsx';
 import Compras from './paginas/Compras.jsx';
 import Usuarios from './paginas/Usuarios.jsx';
@@ -36,6 +37,7 @@ const MENU = [
   ] },
   { grupo: 'Movimento', itens: [
     { rota: '/pdv', rotulo: 'Nova venda (PDV)', icone: '⊕' },
+    { rota: '/prevenda', rotulo: 'Pré-venda (celular)', icone: '📱' },
     { rota: '/orcamentos', rotulo: 'Orçamentos', icone: '✎' },
     { rota: '/vendas', rotulo: 'Vendas', icone: '$' },
     { rota: '/compras', rotulo: 'Notas de Compra', icone: '⎘' },
@@ -61,6 +63,7 @@ function Conteudo({ rota, perfil }) {
     case '/pdv': return <PDV params={params} modo="venda" />;
     case '/orcamento': return <PDV params={params} modo="orcamento" />;
     case '/orcamentos': return <Orcamentos />;
+    case '/prevenda': return <PreVenda />;
     case '/operadores': return perfil.papel === 'admin' ? <Usuarios /> : semAcesso;
     case '/receber': return fin ? <Receber params={params} /> : semAcesso;
     case '/cobrancas': return fin ? <Cobrancas params={params} /> : semAcesso;

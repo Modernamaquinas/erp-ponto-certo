@@ -61,7 +61,7 @@ export default rota(async (req, res) => {
     case 'orcamento_salvar': {
       await operador(sb, c.codigo);
       const p = { id: c.id || null, operador_codigo: String(c.codigo), cliente_id: c.cliente_id || null, cliente_nome: c.cliente_nome || null,
-        validade: c.validade || null, observacao: c.observacao || null, desconto_geral: c.desconto_geral || 0, itens: c.itens || [] };
+        validade: c.validade || null, observacao: c.observacao || null, tipo: c.tipo === 'prevenda' ? 'prevenda' : 'orcamento', desconto_geral: c.desconto_geral || 0, itens: c.itens || [] };
       const { data, error } = await sb.rpc('salvar_orcamento', { p });
       if (error) throw erroBanco(error);
       return res.json({ id: data });

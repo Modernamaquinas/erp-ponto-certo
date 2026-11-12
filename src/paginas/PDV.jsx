@@ -6,6 +6,7 @@ import { imprimirNota, imprimirHtml, acaoAposEmitir } from '../lib/impressao.js'
 import { htmlComprovante, htmlOrcamento } from '../lib/documentos.js';
 import { Pagina, Campo, Tabela, Modal, Aviso, Etiqueta, useAvisar } from '../componentes/ui.jsx';
 import { BuscaCliente } from './NotasFiscais.jsx';
+import { PreVendasAbertas } from './PreVenda.jsx';
 
 // PDV (venda no balcão) e orçamento. A tela só libera depois do código de 4 dígitos do operador,
 // que vai junto em cada operação (o servidor confere permissões de desconto, estoque e custo).
@@ -19,11 +20,16 @@ const lerCfg = () => { try { return { bloquearAposVenda: true, ...JSON.parse(loc
 export default function PDV({ params, modo = 'venda' }) {
   const [op, setOp] = useState(null); // { codigo, nome, desconto_maximo, ... }
   const orcamentoId = params.orcamento ? Number(params.orcamento) : null;
-  const titulo = modo === 'orcamento' ? (params.editar ? `Orçamento ${params.editar}` : 'Novo orçamento') : orcamentoId ? `Venda do orçamento ${orcamentoId}` : 'Nova venda';
+  const [preVendas, setPreVendas] = useState(false);
+  const titulo = modo === 'orcamento' ? (params.editar ? `Orçamento ${params.editar}` : 'Novo orçamento') : orcamentoId ? `Venda do orçamento/pré-venda ${orcamentoId}` : 'Nova venda';
   return (
     <Pagina titulo={titulo} subtitulo={modo === 'orcamento' ? 'Orçamento para o cliente (não baixa estoque)' : 'PDV — venda no balcão com NFC-e'}
-      acoes={op && <span className="pdv-operador">Operador: <strong>{op.nome}</strong>
+      acoes={op && <span className="pdv-operador">
+        {modo === 'venda' && <BotaoPreVendas aoAbrir={() => setPreVendas(true)} />}
+        Operador: <strong>{op.nome}</strong>
         <button type="button" className="btn btn-sec btn-peq" onClick={() => setOp(null)}>Trocar / bloquear</button></span>}>
+      {preVendas && op && <PreVendasAbertas op={op} aoFechar={() => setPreVendas(false)}
+        aoEscolher={(o) => { setPreVendas(false); navegar(`/pdv?orcamento=${o.id}`); }} />}
       {!op ? <Desbloqueio aoLiberar={setOp} /> : (
         <Carrinho key={`${modo}-${orcamentoId}-${params.editar}`} op={op} modo={modo} orcamentoId={orcamentoId} editarId={params.editar ? Number(params.editar) : null}
           aoBloquear={() => setOp(null)} />
@@ -32,7 +38,7 @@ export default function PDV({ params, modo = 'venda' }) {
   );
 }
 
-function Desbloqueio({ aoLiberar }) {
+export function Desbloqueio({ aoLiberar }) {
   const [codigo, setCodigo] = useState('');
   const [erro, setErro] = useState('');
   const [conferindo, setConferindo] = useState(false);
@@ -66,6 +72,7 @@ function Carrinho({ op, modo, orcamentoId, editarId, aoBloquear }) {
   const avisar = useAvisar();
   const [itens, setItens] = useState([]);
   const [cliente, setCliente] = useState(null);
+  const [nomeAvulso, setNomeAvulso] = useState('');
   const [descGeral, setDescGeral] = useState('');
   const [termo, setTermo] = useState('');
   const [sugestoes, setSugestoes] = useState([]);
@@ -86,6 +93,7 @@ function Carrinho({ op, modo, orcamentoId, editarId, aoBloquear }) {
       setItens(its.map((i) => ({ id: i.produto_id, nome: i.produtos?.nome || i.descricao, estoque: i.produtos?.estoque, ncm: i.produtos?.ncm,
         quantidade: String(i.quantidade).replace('.', ','), preco: String(i.preco_unitario).replace('.', ','), desconto: Number(i.desconto) ? String(i.desconto).replace('.', ',') : '' })));
       if (o.clientes) setCliente(o.clientes);
+      else setNomeAvulso(o.cliente_nome || '');
       setOrc({ validade: o.validade || somarDias(hoje(), 10), observacao: o.observacao || '' });
       const descItens = its.reduce((s, i) => s + Number(i.desconto), 0);
       const dg = r2(Number(o.desconto) - descItens);
@@ -150,7 +158,7 @@ function Carrinho({ op, modo, orcamentoId, editarId, aoBloquear }) {
   });
 
   function novaVenda() {
-    setItens([]); setCliente(null); setDescGeral(''); setResultado(null); setFinalizando(false);
+    setItens([]); setCliente(null); setNomeAvulso(''); setDescGeral(''); setResultado(null); setFinalizando(false);
     if (orcamentoId || editarId) navegar(modo === 'orcamento' ? '/orcamentos' : '/pdv');
     if (modo === 'venda' && lerCfg().bloquearAposVenda) aoBloquear();
     else setTimeout(() => busca.current?.focus(), 50);
@@ -189,6 +197,7 @@ function Carrinho({ op, modo, orcamentoId, editarId, aoBloquear }) {
       </div>
 
       <aside className="pdv-lateral">
+        {!cliente && nomeAvulso && <div className="resumo-linha"><span>Cliente da pré-venda: <strong>{nomeAvulso}</strong></span></div>}
         <BuscaCliente cliente={cliente} aoEscolher={setCliente} />
         {modo === 'orcamento' && <>
           <Campo rotulo="Validade"><input type="date" value={orc.validade} onChange={(e) => setOrc({ ...orc, validade: e.target.value })} /></Campo>
@@ -213,7 +222,7 @@ function Carrinho({ op, modo, orcamentoId, editarId, aoBloquear }) {
       {finalizando && !resultado && (
         <Pagamento op={op} total={total} cliente={cliente} aoFechar={() => setFinalizando(false)}
           aoConcluir={(r, pagamentos) => setResultado({ ...r, pagamentos, itens: payloadItens().map((i, k) => ({ ...i, descricao: itens[k].nome })) })}
-          enviar={(extra) => api('pdv', { corpo: { acao: 'finalizar', codigo: op.codigo, cliente_id: cliente?.id, orcamento_id: orcamentoId || undefined,
+          enviar={(extra) => api('pdv', { corpo: { acao: 'finalizar', codigo: op.codigo, cliente_id: cliente?.id, cliente_nome: cliente ? undefined : nomeAvulso || undefined, orcamento_id: orcamentoId || undefined,
             desconto_geral: num(descGeral), itens: payloadItens(), ...extra } })} />
       )}
       {resultado?.venda_id && <ResultadoVenda r={resultado} op={op} cliente={cliente} descGeral={num(descGeral)} aoNova={novaVenda} />}
@@ -322,4 +331,21 @@ function ResultadoVenda({ r, op, cliente, descGeral, aoNova }) {
       )}
     </Modal>
   );
+}
+
+// Contador de pré-vendas aguardando o caixa (atualiza a cada 20 s).
+function BotaoPreVendas({ aoAbrir }) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    let vivo = true;
+    const contar = async () => {
+      const { count } = await supabase.from('orcamentos').select('id', { count: 'exact', head: true }).eq('tipo', 'prevenda').eq('status', 'aberto')
+        .gte('data', somarDias(hoje(), -30));
+      if (vivo) setN(count || 0);
+    };
+    contar().catch(() => {});
+    const t = setInterval(() => contar().catch(() => {}), 20000);
+    return () => { vivo = false; clearInterval(t); };
+  }, []);
+  return <button type="button" className={`btn btn-peq ${n ? 'btn-pri' : 'btn-sec'}`} onClick={aoAbrir}>Pré-vendas{n ? ` (${n})` : ''}</button>;
 }
