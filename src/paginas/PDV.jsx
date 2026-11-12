@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase, api, ou } from '../lib/supabase.js';
 import { moeda, numero, documento, hoje, somarDias } from '../lib/formato.js';
 import { navegar } from '../lib/contexto.js';
-import { imprimirNota, imprimirHtml, acaoAposEmitir } from '../lib/impressao.js';
+import { imprimirNota, imprimirHtml, acaoAposEmitir, salvarArquivoNota } from '../lib/impressao.js';
 import { htmlComprovante, htmlOrcamento } from '../lib/documentos.js';
 import { Pagina, Campo, Tabela, Modal, Aviso, Etiqueta, useAvisar } from '../componentes/ui.jsx';
 import { BuscaCliente } from './NotasFiscais.jsx';
@@ -357,6 +357,37 @@ function ResultadoVenda({ r, op, cliente, descGeral, aoNova }) {
   const comprovante = () => imprimirHtml(htmlComprovante({ venda_id: r.venda_id, itens: r.itens, pagamentos: r.pagamentos, desconto_geral: descGeral,
     frete: r.frete, endereco: r.endereco, total: r.total, troco: r.troco, operador: op.nome, cliente: cliente?.nome, nota }), { titulo: `Venda ${r.venda_id}` });
   const danfce = () => imprimirNota(nota.id).catch((e) => avisar(`Impressão: ${e.message}`, 'erro'));
+  const salvar = (tipo) => salvarArquivoNota(nota.id, tipo).catch((e) => avisar(`Salvar: ${e.message}`, 'erro'));
+  const [zap, setZap] = useState(null); // { fone } enquanto o formulário do WhatsApp está aberto
+  const [abrindoZap, setAbrindoZap] = useState(false);
+  async function abrirZap() {
+    let fone = '';
+    if (cliente?.id) {
+      const { data } = await supabase.from('clientes').select('celular, celular_cobranca, telefone').eq('id', cliente.id).maybeSingle();
+      fone = data?.celular || data?.celular_cobranca || data?.telefone || '';
+    }
+    setZap({ fone });
+  }
+  async function enviarZap() {
+    let d = String(zap.fone || '').replace(/D/g, '');
+    if (d.length === 10 || d.length === 11) d = `55${d}`;
+    if (d.length < 12) return avisar('Informe o celular com DDD.', 'erro');
+    setAbrindoZap(true);
+    try {
+      const l = await api('fiscal', { corpo: { acao: 'link', id: nota.id } });
+      const nome = (cliente?.nome || '').split(' ')[0];
+      const msg = `Olá${nome ? ` ${nome.charAt(0)}${nome.slice(1).toLowerCase()}` : ''}! Segue a NF-e nº ${nota.numero} da Ponto Certo Ferragens, no valor de ${moeda(r.total)}.
+
+`
+        + `DANFE (PDF): ${l.danfe}
+XML: ${l.xml}
+
+Os links valem por ${l.dias} dias. Obrigado pela preferência!`;
+      window.open(`https://wa.me/${d}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+      setZap(null);
+    } catch (e) { avisar(`WhatsApp: ${e.message}`, 'erro'); }
+    setAbrindoZap(false);
+  }
 
   useEffect(() => { if (autorizada && acaoAposEmitir(ehNfe ? 55 : 65) === 'automatico') danfce(); }, []);
 
@@ -382,6 +413,21 @@ function ResultadoVenda({ r, op, cliente, descGeral, aoNova }) {
         {r.troco > 0 && <div className="pdv-valor v-troco"><span>Troco</span><strong>{moeda(r.troco)}</strong></div>}
       </div>
       {autorizada && <Aviso tipo="ok">{sigla} {nota.serie}/{nota.numero} autorizada pela SEFAZ{nota.ambiente === 'homologacao' ? ' (homologação, sem valor fiscal)' : ''}.</Aviso>}
+      {autorizada && ehNfe && (
+        <div className="pdv-nfe-acoes">
+          <button type="button" className="btn btn-sec" onClick={() => salvar('danfe')}>Salvar PDF (DANFE)</button>
+          <button type="button" className="btn btn-sec" onClick={() => salvar('xml')}>Salvar XML</button>
+          <button type="button" className="btn btn-zap" onClick={abrirZap}>Enviar por WhatsApp</button>
+        </div>
+      )}
+      {zap && (
+        <div className="pdv-zap">
+          <Campo rotulo="Celular do cliente (com DDD)"><input inputMode="tel" value={zap.fone} autoFocus onChange={(e) => setZap({ fone: e.target.value })} placeholder="(54) 99999-9999" /></Campo>
+          <button type="button" className="btn btn-zap" onClick={enviarZap} disabled={abrindoZap}>{abrindoZap ? 'Gerando link…' : 'Abrir WhatsApp'}</button>
+          <button type="button" className="btn btn-sec btn-peq" onClick={() => setZap(null)}>Cancelar</button>
+          <p className="texto-fraco">Abre o WhatsApp com a mensagem pronta e os links do PDF e do XML (válidos por 60 dias). Confira e aperte enviar.</p>
+        </div>
+      )}
       {!autorizada && (
         <Aviso tipo="erro">A venda foi gravada e está no caixa, mas a {sigla} não foi autorizada: {erroNfce || 'sem resposta'}.{' '}
           {ehNfe && 'Se for cadastro do cliente (endereço, CPF/CNPJ, IE), corrija em Clientes e tente de novo. '}

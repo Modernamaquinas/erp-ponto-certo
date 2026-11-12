@@ -370,3 +370,10 @@ button.cartao:hover { border-color: var(--marca); }
 .pdv-valor.v-falta strong { color: var(--erro); }
 .pdv-valor.v-troco { background: var(--ok-fundo); border-color: var(--ok); }
 .pdv-valor.v-troco strong { color: var(--ok); font-size: 38px; }
+
+/* PDV — NF-e concluída: salvar PDF/XML e enviar por WhatsApp (2026-11-12) */
+.pdv-nfe-acoes { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.btn-zap { background: #1f8f4e; border-color: #1f8f4e; color: #fff; }
+.btn-zap:hover:not(:disabled) { background: #187340; }
+.pdv-zap { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; padding: 10px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie-2); }
+.pdv-zap p { flex-basis: 100%; margin: 0; }

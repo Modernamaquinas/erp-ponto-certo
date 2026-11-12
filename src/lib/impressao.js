@@ -86,3 +86,14 @@ export function imprimirHtml(corpo, { titulo = 'Impressão', largura } = {}) {
     </head><body>${corpo}</body></html>`;
   return imprimirEmQuadro({ html }, 1);
 }
+
+/** Baixa o DANFE (PDF) ou o XML de uma nota autorizada para o computador. */
+export async function salvarArquivoNota(notaId, tipo = 'danfe') {
+  const r = await api('fiscal', { corpo: { acao: tipo === 'xml' ? 'xml' : 'danfe', id: notaId } });
+  const bytes = Uint8Array.from(atob(r.base64), (c) => c.charCodeAt(0));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([bytes], { type: (r.tipo || 'application/octet-stream').split(';')[0] }));
+  a.download = r.nome;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
