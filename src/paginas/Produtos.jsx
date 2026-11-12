@@ -7,13 +7,13 @@ import EditarCadastro from '../componentes/EditarCadastro.jsx';
 
 const POR_PAGINA = 50;
 
-export default function Produtos() {
+export default function Produtos({ params = {} }) {
   const verCusto = podeFinanceiro(usePerfil());
   const [termo, setTermo] = useState('');
   const [filtro, setFiltro] = useState('ativos');
   const [grupo, setGrupo] = useState('');
   const [pagina, setPagina] = useState(1);
-  const [aberto, setAberto] = useState(null);
+  const [aberto, setAberto] = useState(params.id ? { id: Number(params.id) } : null); // ?id= abre o produto (links dos relatórios)
   const busca = useAtrasado(termo);
 
   const grupos = useConsulta(async () => ({ dados: ou(await supabase.from('grupos_produto').select('id, nome').order('nome')).data }), []);

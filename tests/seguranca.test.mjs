@@ -23,7 +23,7 @@ async function preparar() {
     alter default privileges in schema public grant all on tables to anon, authenticated;
     alter default privileges in schema public grant all on sequences to anon, authenticated;
   `);
-  for (const f of ['002_seguranca.sql', '004_cartoes_seguranca.sql', '006_fiscal_seguranca.sql', '008_pdv_seguranca.sql', '011_edicao_seguranca.sql', '013_etiquetas_seguranca.sql']) {
+  for (const f of ['002_seguranca.sql', '004_cartoes_seguranca.sql', '006_fiscal_seguranca.sql', '008_pdv_seguranca.sql', '011_edicao_seguranca.sql', '013_etiquetas_seguranca.sql', '017_relatorios_seguranca.sql']) {
     await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'));
   }
   await db.exec(`
@@ -126,4 +126,31 @@ test('RLS por papel', async () => {
   } finally {
     await db.close();
   }
+});
+
+test('relatórios e contagem cíclica por papel (017)', async () => {
+  const db = await preparar();
+  try {
+    await assert.rejects(como(db, VEND, 'select rel_vendas(current_date - 30, current_date)'), /não tem acesso/);
+    await assert.rejects(como(db, VEND, 'select rel_receber(current_date - 30, current_date)'), /não tem acesso/);
+    await assert.rejects(como(db, null, 'select rel_estoque(180)'), /permission denied|não tem acesso/);
+    const r = await como(db, FIN, 'select rel_vendas(current_date - 30, current_date) as r');
+    assert.equal(r.rows[0].r.resumo.qtd, 0);
+    await assert.rejects(como(db, FIN, 'select rel_resumo_vendas(current_date, current_date)'), /permission denied/);
+
+    await db.exec('update produtos set estoque = 4 where id = 5');
+    await assert.rejects(como(db, VEND, `select contagem_criar('{}')`), /não tem acesso/);
+    const id = Number((await como(db, FIN, `select contagem_criar('{"descricao":"Teste"}') as id`)).rows[0].id);
+    assert.equal((await db.query('select criada_por from contagens where id = $1', [id])).rows[0].criada_por, 'Fin');
+    // vendedor conta (com o nome dele), vê a lista, mas não fecha nem grava direto na tabela
+    await como(db, VEND, 'select contagem_lancar($1, 5, 3)', [id]);
+    assert.equal((await db.query('select contado_por from contagem_itens where contagem_id = $1', [id])).rows[0].contado_por, 'Vend');
+    assert.equal((await como(db, VEND, 'select * from contagem_itens')).rows.length, 1);
+    await assert.rejects(como(db, VEND, 'select contagem_finalizar($1, true)', [id]), /não tem acesso/);
+    await como(db, VEND, 'update contagem_itens set quantidade = 999');
+    assert.equal(Number((await db.query('select quantidade from contagem_itens')).rows[0].quantidade), 3);
+    await assert.rejects(como(db, null, 'select contagem_lancar($1, 5, 1)', [id]), /permission denied|não tem acesso/);
+    await como(db, ADMIN, 'select contagem_finalizar($1, true)', [id]);
+    assert.equal(Number((await db.query('select estoque from produtos where id = 5')).rows[0].estoque), 3);
+  } finally { await db.close(); }
 });

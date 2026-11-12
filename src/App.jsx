@@ -18,6 +18,8 @@ import PDV from './paginas/PDV.jsx';
 import Orcamentos from './paginas/Orcamentos.jsx';
 import PreVenda from './paginas/PreVenda.jsx';
 import Etiquetas from './paginas/Etiquetas.jsx';
+import Relatorios from './paginas/Relatorios.jsx';
+import Contagem from './paginas/Contagem.jsx';
 import Vendas from './paginas/Vendas.jsx';
 import Compras from './paginas/Compras.jsx';
 import Usuarios from './paginas/Usuarios.jsx';
@@ -45,6 +47,10 @@ const MENU = [
     { rota: '/compras', rotulo: 'Notas de Compra', icone: '⎘' },
     { rota: '/notas', rotulo: 'Notas Fiscais', icone: '🗎' },
   ] },
+  { grupo: 'Relatórios', itens: [
+    { rota: '/relatorios', rotulo: 'Relatórios e gráficos', icone: '▲', fin: true },
+    { rota: '/contagem', rotulo: 'Contagem de estoque', icone: '☑' },
+  ] },
   { grupo: 'Sistema', admin: true, itens: [{ rota: '/usuarios', rotulo: 'Usuários', icone: '⚙' }] },
 ];
 
@@ -57,7 +63,9 @@ function Conteudo({ rota, perfil }) {
   switch (caminho) {
     case '/': return <Painel />;
     case '/clientes': return <Clientes />;
-    case '/produtos': return <Produtos />;
+    case '/produtos': return <Produtos key={params.id} params={params} />;
+    case '/relatorios': return fin ? <Relatorios params={params} /> : semAcesso;
+    case '/contagem': return <Contagem params={params} />;
     case '/fornecedores': return <Fornecedores />;
     case '/vendas': return <Vendas params={params} />;
     case '/compras': return <Compras />;
@@ -120,7 +128,7 @@ export default function App() {
             {MENU.filter((g) => (!g.fin || podeFinanceiro(perfil)) && (!g.admin || perfil.papel === 'admin')).map((g) => (
               <div key={g.grupo} className="menu-grupo">
                 <span className="menu-titulo">{g.grupo}</span>
-                {g.itens.map((i) => (
+                {g.itens.filter((i) => !i.fin || podeFinanceiro(perfil)).map((i) => (
                   <a key={i.rota} href={`#${i.rota}`} className={`menu-item${ativo(i.rota) ? ' ativo' : ''}`}>
                     <span className="menu-icone" aria-hidden="true">{i.icone}</span>{i.rotulo}
                   </a>

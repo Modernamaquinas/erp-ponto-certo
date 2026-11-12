@@ -29,6 +29,26 @@ test('migração completa e re-sincronização', { skip: !FDB && 'defina FDB_TES
     const painel = (await um(`select resumo_painel() as r`)).r;
     assert.ok(Number(painel.receber_aberto) > 0);
 
+    // Relatórios (016) com o volume real: calculam, batem com o painel e não estouram o tempo
+    const tempos = {};
+    const rel = async (sql) => { const t0 = Date.now(); const r = (await um(`select ${sql} as r`)).r; tempos[sql.split('(')[0]] = Date.now() - t0; return r; };
+    const rv = await rel(`rel_vendas(current_date - 364, current_date)`);
+    assert.ok(rv.resumo.qtd > 1000 && Number(rv.resumo.total) > 0);
+    const somaFormas = rv.por_forma.reduce((s, x) => s + Number(x.total), 0);
+    assert.ok(Math.abs(somaFormas - Number(rv.resumo.total)) / Number(rv.resumo.total) < 0.01, `formas ${somaFormas} x total ${rv.resumo.total}`);
+    assert.ok(Number(rv.resumo.lucro) < Number(rv.resumo.total));
+    const re = await rel(`rel_estoque(180)`);
+    assert.ok(re.resumo.itens > 1000 && Number(re.resumo.valor_custo) > 0);
+    const rr = await rel(`rel_receber(current_date - 29, current_date)`);
+    assert.equal(Number(rr.resumo.aberto), Number(painel.receber_aberto));
+    assert.equal(Number(rr.resumo.vencido), Number(painel.receber_atrasado));
+    const rp = await rel(`rel_pagar(current_date - 29, current_date)`);
+    assert.equal(Number(rp.resumo.vencido), Number(painel.pagar_atrasado));
+    await rel(`rel_financeiro(current_date - 29, current_date)`);
+    const idc = Number((await um(`select contagem_criar('{"quantidade":100,"curva":"A"}') as id`)).id);
+    assert.equal(Number((await um('select count(*) as n from contagem_itens where contagem_id = $1', [idc])).n), 100);
+    console.log('relatórios (ms):', JSON.stringify(tempos), 'formas:', JSON.stringify(rv.por_forma.map((x) => [x.forma, Math.round(x.total)])));
+
     // --- Regras da sincronização (Fase 1) ---
     const titulo = await um(`select id, cliente_id, saldo from contas_receber where status = 'aberto' and baixa_origem is null order by id limit 1`);
 

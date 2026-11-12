@@ -188,7 +188,7 @@ function BuscaManual({ aoEscolher, aoCodigo }) {
   );
 }
 
-function LeitorCamera({ aoLer, aoFechar }) {
+export function LeitorCamera({ aoLer, aoFechar }) {
   const video = useRef(null);
   const [erro, setErro] = useState('');
   const [ultimo, setUltimo] = useState(null);
@@ -209,7 +209,7 @@ function LeitorCamera({ aoLer, aoFechar }) {
       <div className="pv-mira" aria-hidden="true" />
       <div className="pv-camera-info">
         {erro ? <Aviso tipo="erro">{erro}</Aviso>
-          : ultimo ? <span>✓ {ultimo.nome} — {moeda(ultimo.preco_venda)} <span className="texto-fraco">({contagem} lido{contagem > 1 ? 's' : ''})</span></span>
+          : ultimo ? <span>✓ {ultimo.texto || `${ultimo.nome} — ${moeda(ultimo.preco_venda)}`} <span className="texto-fraco">({contagem} lido{contagem > 1 ? 's' : ''})</span></span>
             : <span>Aponte para o código de barras</span>}
         <button type="button" className="btn btn-pri pv-grande" onClick={aoFechar}>Concluir leitura</button>
       </div>

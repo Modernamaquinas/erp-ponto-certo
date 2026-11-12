@@ -377,3 +377,77 @@ button.cartao:hover { border-color: var(--marca); }
 .btn-zap:hover:not(:disabled) { background: #187340; }
 .pdv-zap { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; padding: 10px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie-2); }
 .pdv-zap p { flex-basis: 100%; margin: 0; }
+
+/* ---------------------------------------------------------------- relatórios e gráficos (2026-11-12) */
+.texto-ok { color: var(--ok); }
+.campo-check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--texto-2); }
+.form-grade .campo-check { grid-column: 1 / -1; }
+.rel-periodo { display: grid; gap: 8px; margin: 12px 0; }
+.rel-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.rel-impresso { display: none; }
+.rel-conteudo { display: grid; gap: 16px; transition: opacity .15s; }
+.rel-conteudo.carregando { opacity: .55; }
+.rel-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 16px; align-items: start; }
+.rel-secao { display: grid; gap: 10px; }
+.rel-secao h2, .grafico h2 { font-size: 15px; margin: 0; }
+.grafico-sub { margin: 2px 0 0; }
+.grafico-acoes { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.indicadores { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.indicador { background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); padding: 12px 14px; display: grid; gap: 2px; border-top: 3px solid var(--texto-3); }
+.ind-rotulo { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--texto-2); }
+.ind-valor { font-size: 24px; line-height: 1.25; color: var(--texto); font-variant-numeric: tabular-nums; }
+.ind-ok { border-top-color: var(--ok); } .ind-ok .ind-valor { color: var(--ok); }
+.ind-erro { border-top-color: var(--erro); } .ind-erro .ind-valor { color: var(--erro); }
+.ind-alerta { border-top-color: var(--alerta); } .ind-alerta .ind-valor { color: var(--alerta); }
+.ind-info { border-top-color: var(--info); } .ind-info .ind-valor { color: var(--info); }
+.ind-delta { font-size: 12px; font-weight: 600; color: var(--texto-2); }
+.ind-delta.bom { color: var(--ok); } .ind-delta.ruim { color: var(--erro); }
+.ind-delta small { font-weight: 400; color: var(--texto-3); }
+.ind-detalhe { font-size: 12px; color: var(--texto-3); }
+.barras-info .barra { background: var(--info); }
+.barras-ok .barra { background: var(--ok); }
+.barra-dupla { gap: 2px; }
+.barra-dupla .barra { width: min(14px, 34%); }
+.barra-a { background: var(--info) !important; }
+.barra-b { background: var(--marca) !important; }
+.legenda { display: flex; gap: 12px; font-size: 12px; color: var(--texto-2); }
+.legenda span { display: inline-flex; align-items: center; gap: 5px; }
+.leg { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.leg-a { background: var(--info); } .leg-b { background: var(--marca); }
+.barras-h { display: grid; gap: 8px; }
+.bh-linha { display: grid; grid-template-columns: minmax(90px, 34%) 1fr auto; align-items: center; gap: 4px 10px; font-size: 13px; }
+.bh-rotulo { color: var(--texto); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bh-trilho { height: 12px; background: var(--superficie-2); border-radius: 3px; overflow: hidden; }
+.bh-barra { display: block; height: 100%; background: var(--barra); border-radius: 0 4px 4px 0; }
+.bh-barra.tom-erro { background: var(--erro); } .bh-barra.tom-ok { background: var(--ok); } .bh-barra.tom-info { background: var(--info); }
+.bh-valor { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; white-space: nowrap; }
+.bh-valor small { font-weight: 400; color: var(--texto-3); margin-left: 6px; }
+.bh-detalhe { grid-column: 1 / -1; font-size: 11px; color: var(--texto-3); margin-top: -4px; }
+.dre td { padding: 7px 4px; }
+.dre-total td { font-weight: 700; border-top: 1px solid var(--borda); }
+.dre-ok td:last-child { color: var(--ok); } .dre-erro td:last-child { color: var(--erro); }
+@media (max-width: 860px) {
+  .bh-linha { grid-template-columns: 1fr auto; }
+  .bh-trilho { grid-column: 1 / -1; grid-row: 2; }
+  .bh-detalhe { grid-row: 3; }
+  .ind-valor { font-size: 20px; }
+}
+
+/* ---------------------------------------------------------------- contagem cíclica (2026-11-12) */
+.cont-progresso { height: 8px; background: var(--superficie-2); border: 1px solid var(--borda); border-radius: 99px; overflow: hidden; margin-bottom: 12px; }
+.cont-progresso span { display: block; height: 100%; background: var(--ok); transition: width .3s; }
+.cont-lancar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; padding: 12px; margin-bottom: 12px; background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); }
+.cont-lancar .campo { flex: 1 1 220px; }
+.cont-qtd { font-size: 20px; font-weight: 700; max-width: 140px; }
+.cont-sel { flex-basis: 100%; margin: 0; font-size: 14px; }
+.cont-vazio { color: var(--texto-3); letter-spacing: 2px; }
+
+/* impressão dos relatórios e da folha de contagem: só o conteúdo */
+@media print {
+  .lateral, .barra-movel, .pagina-acoes, .rel-presets, .rel-periodo, .cont-lancar, .grafico-acoes, .abas, .btn { display: none !important; }
+  .app { display: block; }
+  main { padding: 0; max-width: none; }
+  .rel-impresso { display: block; margin: 0 0 8px; }
+  .grafico, .indicador, .rel-secao { break-inside: avoid; }
+  body { background: #fff; }
+}

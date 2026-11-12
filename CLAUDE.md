@@ -58,3 +58,12 @@ ERP web da Ponto Certo Ferragens (pt-BR), substituindo o DirectControl/Acertsoft
   (indPres 4) e a SEFAZ exige destinatário com CPF/CNPJ (787) e endereço (788)** — por isso venda com frete exige cliente
   cadastrado (testado em homologação). Endereço digitado sem frete vai só em infCpl ("ENTREGA: ..."). NF-e pelo PDV vale
   para qualquer operador (a emissão avulsa em Notas Fiscais continua só admin/financeiro).
+- NF-e concluída no PDV: "Salvar PDF/XML" (`salvarArquivoNota`) e "Enviar por WhatsApp" (wa.me com links públicos assinados
+  `GET /api/fiscal?arquivo=danfe|xml&id&exp&sig`, HMAC em `api/_lib/fiscal/link.js`, 60 dias). Segredo: `LINK_NOTA_SEGREDO` ou, sem ele,
+  derivado de `SUPABASE_SERVICE_ROLE_KEY` — trocar essa chave invalida os links já enviados.
+- Relatórios (`/relatorios?aba=vendas|estoque|receber|pagar|financeiro`, só admin/financeiro) e contagem cíclica (`/contagem`): 016/017.
+  Cada aba chama uma função `rel_*` (security definer, checa `rel_permitido('fin')`) que devolve um jsonb já agregado. Formas de
+  pagamento agrupadas por `grupo_forma(id)`; troco (pago acima do total) sai do dinheiro. Gráficos sem biblioteca em
+  `src/componentes/graficos.jsx`. Contagem: lista por critério com foto do estoque; contagem cega para vendedor; fechar com ajuste
+  aplica `contado − foto` (não perde vendas no meio). **A sincronização do DirectControl sobrescreve `produtos.estoque`**: até a troca
+  de sistema, o acerto também precisa ser lançado lá.
