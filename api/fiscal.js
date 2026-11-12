@@ -3,11 +3,13 @@
 //   emitir   { modelo, ... }       NFC-e: qualquer usuário (caixa); NF-e: admin/financeiro
 //   consultar|danfe|xml { id }     qualquer usuário
 //   cancelar { id, justificativa } admin/financeiro
+//   nfe_recebida { chave, manifestar? } admin/financeiro: XML de compra pela chave (MD-e, ver recebidas.js)
 //   link     { id }                qualquer usuário: links assinados (DANFE e XML) para mandar ao cliente
 // GET /api/fiscal?arquivo=danfe|xml&id&exp&sig  público, só com link assinado (link.js)
 import { supabaseServico, exigirUsuario, rota, ErroHttp } from './_lib/supabase.js';
 import { emitirNota, consultarNota, cancelarNota, danfeNota, xmlNota, verificarFocus, configFiscal } from './_lib/fiscal/emitir.js';
 import { focusConfigurada } from './_lib/fiscal/focus.js';
+import { buscarNfeRecebida } from './_lib/fiscal/recebidas.js';
 import { assinarLinkNota, linkNotaValido, VALIDADE_LINK_DIAS } from './_lib/fiscal/link.js';
 
 export const config = { maxDuration: 60 };
@@ -17,7 +19,7 @@ export default rota(async (req, res) => {
   if (req.method === 'GET' && req.query?.arquivo) return arquivoPublico(req, res);
   if (req.method !== 'POST') throw new ErroHttp(405, 'Use POST');
   const corpo = req.body || {};
-  const fin = corpo.acao === 'cancelar' || (corpo.acao === 'emitir' && Number(corpo.modelo) === 55);
+  const fin = corpo.acao === 'cancelar' || corpo.acao === 'nfe_recebida' || (corpo.acao === 'emitir' && Number(corpo.modelo) === 55);
   const usuario = await exigirUsuario(req, fin ? ['admin', 'financeiro'] : TODOS);
   const sb = supabaseServico();
   const id = Number(corpo.id);
@@ -38,6 +40,8 @@ export default rota(async (req, res) => {
       return res.json(await danfeNota(sb, id));
     case 'xml':
       return res.json(await xmlNota(sb, id));
+    case 'nfe_recebida':
+      return res.json(await buscarNfeRecebida(corpo.chave, { manifestar: corpo.manifestar === true }));
     case 'link': {
       const { data: n } = await sb.from('notas_fiscais').select('id, status').eq('id', id).maybeSingle();
       if (!n || n.status !== 'autorizada') throw new ErroHttp(400, 'Só nota autorizada gera link');

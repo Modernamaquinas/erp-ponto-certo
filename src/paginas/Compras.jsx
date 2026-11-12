@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { supabase, ou } from '../lib/supabase.js';
 import { moeda, numero, data, normalizaBusca } from '../lib/formato.js';
-import { navegar } from '../lib/contexto.js';
+import { navegar, usePerfil, podeFinanceiro } from '../lib/contexto.js';
 import { Pagina, Filtros, Campo, Tabela, Paginacao, Modal, Detalhes, useConsulta, useAtrasado } from '../componentes/ui.jsx';
 
 const POR_PAGINA = 50;
 
 export default function Compras() {
+  const fin = podeFinanceiro(usePerfil());
   const [termo, setTermo] = useState('');
   const [f, setF] = useState({ de: '', ate: '' });
   const [pagina, setPagina] = useState(1);
@@ -28,7 +29,8 @@ export default function Compras() {
   }, [busca, f, pagina]);
 
   return (
-    <Pagina titulo="Notas de Compra" subtitulo="Entradas lançadas no DirectControl">
+    <Pagina titulo="Notas de Compra" subtitulo="Entradas lançadas no DirectControl e no ERP"
+      acoes={fin && <><a className="btn btn-sec" href="#/compras/lista">Lista de compras</a><a className="btn btn-pri" href="#/compras/entrada">Entrada de nota (XML / chave)</a></>}>
       <Filtros>
         <Campo rotulo="Nº da nota, chave da NF-e ou fornecedor" largo>
           <input type="search" value={termo} onChange={(e) => { setPagina(1); setTermo(e.target.value); }} />

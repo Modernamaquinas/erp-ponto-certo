@@ -75,3 +75,11 @@ ERP web da Ponto Certo Ferragens (pt-BR), substituindo o DirectControl/Acertsoft
 - Crediário: 1ª parcela sempre no dia 10 do mês seguinte (`vencimento_crediario`, aplicado no banco; o navegador só mostra).
 - Entrega na finalização (018): `vendas.entrega`, `entrega_nome/telefone/data/horario` + `endereco_entrega`. Sem cadastro, nome e
   telefone são obrigatórios; o frete continua exigindo cliente cadastrado (SEFAZ 787/788). O comprovante sai com o quadro de entrega.
+- Entrada de notas (`/compras/entrada`, 020/021): XML lido no navegador por `src/lib/nfeXml.js` (parser próprio, testado com o XML
+  real em `tests/fixtures/`), ou baixado pela chave via Focus MD-e (`api/_lib/fiscal/recebidas.js`; exige `habilita_manifestacao` na
+  empresa da Focus; a "ciência da operação" só é registrada quando o usuário confirma). `entrada_preparar` casa os itens pelo código
+  no fornecedor (`produto_fornecedores`) e pelo EAN; `lancar_compra` soma estoque × fator, grava custo/custo médio, vínculo, fiscal e
+  preço só do que mudou, e as duplicatas em contas a pagar. Sugestão fiscal de venda: nota com ST → CSOSN 500/CFOP 5405, senão
+  102/5102. NCM: `public/fiscal/ncm.json` gerado da tabela oficial por `scripts/gerar-ncm.mjs`; CFOP/CSOSN/CST em `src/lib/fiscalTabelas.js`.
+- Lista de compras (`/compras/lista`, `lista_compras`): em falta (estoque ≤ 0, com venda ou mínimo) e no mínimo; sugestão = repor até
+  max(mínimo, média diária × cobertura), pelo menos o mínimo; agrupada pelo último fornecedor (compra mais recente).

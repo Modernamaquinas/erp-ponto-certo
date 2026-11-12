@@ -23,7 +23,7 @@ async function preparar() {
     alter default privileges in schema public grant all on tables to anon, authenticated;
     alter default privileges in schema public grant all on sequences to anon, authenticated;
   `);
-  for (const f of ['002_seguranca.sql', '004_cartoes_seguranca.sql', '006_fiscal_seguranca.sql', '008_pdv_seguranca.sql', '011_edicao_seguranca.sql', '013_etiquetas_seguranca.sql', '017_relatorios_seguranca.sql', '019_consignado_seguranca.sql']) {
+  for (const f of ['002_seguranca.sql', '004_cartoes_seguranca.sql', '006_fiscal_seguranca.sql', '008_pdv_seguranca.sql', '011_edicao_seguranca.sql', '013_etiquetas_seguranca.sql', '017_relatorios_seguranca.sql', '019_consignado_seguranca.sql', '021_entrada_compras_seguranca.sql']) {
     await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'));
   }
   await db.exec(`
@@ -152,5 +152,17 @@ test('relatórios e contagem cíclica por papel (017)', async () => {
     await assert.rejects(como(db, null, 'select contagem_lancar($1, 5, 1)', [id]), /permission denied|não tem acesso/);
     await como(db, ADMIN, 'select contagem_finalizar($1, true)', [id]);
     assert.equal(Number((await db.query('select estoque from produtos where id = 5')).rows[0].estoque), 3);
+  } finally { await db.close(); }
+});
+
+test('entrada de notas e lista de compras só para admin/financeiro (021)', async () => {
+  const db = await preparar();
+  try {
+    await assert.rejects(como(db, VEND, `select lista_compras('{}')`), /não tem acesso/);
+    await assert.rejects(como(db, VEND, `select lancar_compra('{"itens":[{"item":1}]}')`), /não tem acesso/);
+    await assert.rejects(como(db, VEND, `select entrada_preparar('{}')`), /não tem acesso/);
+    await assert.rejects(como(db, null, `select lista_compras('{}')`), /permission denied|não tem acesso/);
+    assert.ok((await como(db, FIN, `select lista_compras('{}') as r`)).rows[0].r.resumo);
+    assert.deepEqual((await como(db, VEND, `select fiscal_sugestoes_ncm('82023900') as r`)).rows[0].r, []);
   } finally { await db.close(); }
 });

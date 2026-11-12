@@ -464,3 +464,39 @@ button.cartao:hover { border-color: var(--marca); }
 .pdv-venc strong { font-size: 17px; color: var(--info); }
 .pdv-venc small { font-size: 11px; color: var(--texto-3); }
 .input-erro { border-color: var(--erro) !important; color: var(--erro); }
+
+/* ---------------------------------------------------------------- entrada de notas, campos fiscais, lista de compras (2026-11-12) */
+.btn-link { background: none; border: 0; padding: 0; color: var(--info); cursor: pointer; font-size: 12px; text-decoration: underline; }
+.entrada-origem { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 16px; margin-bottom: 16px; }
+.entrada-opcao { display: grid; gap: 10px; align-content: start; padding: 20px; border: 2px dashed var(--borda); border-radius: 12px; background: var(--superficie); }
+.entrada-opcao h2 { font-size: 16px; margin: 0; }
+.entrada-chave { font-size: 18px; letter-spacing: 1px; font-variant-numeric: tabular-nums; }
+.entrada-cab, .entrada-rodape { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 12px; margin: 12px 0; }
+.entrada-bloco { background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); padding: 12px 14px; display: grid; gap: 6px; align-content: start; }
+.entrada-bloco h3 { margin: 0; font-size: 14px; }
+.entrada-bloco p { margin: 0; }
+.entrada-totais > div { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
+.entrada-total { border-top: 1px solid var(--borda); padding-top: 6px; font-size: 17px; }
+.entrada-final { align-content: center; }
+.entrada-itens td { vertical-align: top; }
+.entrada-desc { font-weight: 600; max-width: 340px; }
+.entrada-novo { width: 100%; min-width: 220px; font-weight: 600; }
+.entrada-novo-linha { display: flex; gap: 6px; margin: 4px 0; }
+.entrada-fiscal-resumo { font-size: 12px; font-variant-numeric: tabular-nums; }
+.linha-pendente td { background: var(--alerta-fundo); }
+.entrada-fiscal-linha td { background: var(--superficie-2); }
+.entrada-fiscal { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+.entrada-div { margin: 6px 0 0; padding-left: 18px; color: var(--alerta); font-size: 12px; }
+.fiscal-campo { flex: 1 1 170px; min-width: 150px; }
+.fiscal-input { display: flex; gap: 4px; }
+.fiscal-input input { flex: 1; min-width: 0; }
+.fiscal-desc { display: block; font-size: 11px; color: var(--texto-3); max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fiscal-sugestoes { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
+.fiscal-busca { width: 100%; font-size: 16px; margin-bottom: 8px; }
+.fiscal-lista { list-style: none; margin: 0; padding: 0; max-height: 55vh; overflow: auto; border: 1px solid var(--borda); border-radius: var(--raio); }
+.fiscal-lista li + li { border-top: 1px solid var(--borda); }
+.fiscal-lista button { display: grid; grid-template-columns: 110px 1fr; gap: 10px; width: 100%; text-align: left; background: none; border: 0; padding: 8px 10px; cursor: pointer; color: var(--texto); }
+.fiscal-lista button:hover, .fiscal-lista button:focus { background: var(--info-fundo); }
+.fiscal-lista strong { font-variant-numeric: tabular-nums; }
+.lista-forn h2 small { font-weight: 400; }
+@media print { .lista-forn { break-inside: avoid; } .lista-forn input { border: 0; } }

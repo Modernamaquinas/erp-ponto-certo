@@ -19,6 +19,8 @@ import Orcamentos from './paginas/Orcamentos.jsx';
 import PreVenda from './paginas/PreVenda.jsx';
 import Etiquetas from './paginas/Etiquetas.jsx';
 import Relatorios from './paginas/Relatorios.jsx';
+import EntradaNota from './paginas/EntradaNota.jsx';
+import ListaCompras from './paginas/ListaCompras.jsx';
 import Contagem from './paginas/Contagem.jsx';
 import Vendas from './paginas/Vendas.jsx';
 import Compras from './paginas/Compras.jsx';
@@ -45,6 +47,8 @@ const MENU = [
     { rota: '/orcamentos', rotulo: 'Orçamentos', icone: '✎' },
     { rota: '/vendas', rotulo: 'Vendas', icone: '$' },
     { rota: '/compras', rotulo: 'Notas de Compra', icone: '⎘' },
+    { rota: '/compras/entrada', rotulo: 'Entrada de nota (XML)', icone: '⇩', fin: true },
+    { rota: '/compras/lista', rotulo: 'Lista de compras', icone: '☰', fin: true },
     { rota: '/notas', rotulo: 'Notas Fiscais', icone: '🗎' },
   ] },
   { grupo: 'Relatórios', itens: [
@@ -69,6 +73,8 @@ function Conteudo({ rota, perfil }) {
     case '/fornecedores': return <Fornecedores />;
     case '/vendas': return <Vendas params={params} />;
     case '/compras': return <Compras />;
+    case '/compras/entrada': return fin ? <EntradaNota /> : semAcesso;
+    case '/compras/lista': return fin ? <ListaCompras /> : semAcesso;
     case '/notas': return <NotasFiscais params={params} />;
     case '/pdv': return <PDV params={params} modo="venda" />;
     case '/orcamento': return <PDV params={params} modo="orcamento" />;
@@ -118,7 +124,10 @@ export default function App() {
     );
   }
 
-  const ativo = (r) => (r === '/' ? rota.caminho === '/' : rota.caminho.startsWith(r));
+  // item ativo = a rota do menu mais longa que é prefixo do caminho (/compras/entrada não acende /compras)
+  const rotasMenu = MENU.flatMap((g) => g.itens.map((i) => i.rota));
+  const melhor = rotasMenu.filter((r) => r !== '/' && (rota.caminho === r || rota.caminho.startsWith(`${r}/`))).sort((a2, b) => b.length - a2.length)[0];
+  const ativo = (r) => (r === '/' ? rota.caminho === '/' : r === melhor);
   return (
     <PerfilCtx.Provider value={perfil}>
       <div className={`app${menuAberto ? ' menu-aberto' : ''}`}>
