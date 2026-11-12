@@ -220,8 +220,9 @@ function Carrinho({ op, modo, orcamentoId, editarId, aoBloquear }) {
       </aside>
 
       {finalizando && !resultado && (
-        <Pagamento op={op} total={total} cliente={cliente} aoFechar={() => setFinalizando(false)}
-          aoConcluir={(r, pagamentos) => setResultado({ ...r, pagamentos, itens: payloadItens().map((i, k) => ({ ...i, descricao: itens[k].nome })) })}
+        <Pagamento op={op} total={total} cliente={cliente} descGeral={descGeral} setDescGeral={setDescGeral} totalProdutos={totalProdutos} descItens={descItens}
+          aoFechar={() => setFinalizando(false)}
+          aoConcluir={(r, pagamentos, extra) => setResultado({ ...r, pagamentos, ...extra, itens: payloadItens().map((i, k) => ({ ...i, descricao: itens[k].nome })) })}
           enviar={(extra) => api('pdv', { corpo: { acao: 'finalizar', codigo: op.codigo, cliente_id: cliente?.id, cliente_nome: cliente ? undefined : nomeAvulso || undefined, orcamento_id: orcamentoId || undefined,
             desconto_geral: num(descGeral), itens: payloadItens(), ...extra } })} />
       )}
@@ -239,11 +240,21 @@ function Carrinho({ op, modo, orcamentoId, editarId, aoBloquear }) {
   );
 }
 
-function Pagamento({ op, total, cliente, aoFechar, aoConcluir, enviar }) {
+function Pagamento({ op, total: totalItens, cliente, descGeral, setDescGeral, totalProdutos, descItens, aoFechar, aoConcluir, enviar }) {
   const avisar = useAvisar();
-  const [pags, setPags] = useState([{ forma: 'dinheiro', valor: String(total.toFixed(2)).replace('.', ','), parcelas: '1', primeiro_vencimento: somarDias(hoje(), 30) }]);
+  // campos opcionais da finalização: desconto em R$ (o mesmo "desconto geral" do carrinho), frete e endereço de entrega
+  const [frete, setFrete] = useState('');
+  const [endereco, setEndereco] = useState('');
+  const [docFiscal, setDocFiscal] = useState('nfce');
+  const total = r2(totalItens + num(frete));
+  const valorTxt = (v) => String(v.toFixed(2)).replace('.', ',');
+  const [pags, setPags] = useState([{ forma: 'dinheiro', valor: valorTxt(total), parcelas: '1', primeiro_vencimento: somarDias(hoje(), 30) }]);
+  // com uma forma só, o valor acompanha o total quando muda o desconto ou o frete
+  useEffect(() => { setPags((l) => (l.length === 1 ? [{ ...l[0], valor: valorTxt(total) }] : l)); }, [total]);
   const [cpf, setCpf] = useState(cliente?.cpf_cnpj || '');
   const [enviando, setEnviando] = useState(false);
+  const descPerc = totalProdutos ? ((descItens + num(descGeral)) / totalProdutos) * 100 : 0;
+  const nfe = docFiscal === 'nfe';
   const pago = r2(pags.reduce((s, p) => s + num(p.valor), 0));
   const falta = r2(total - pago);
   const troco = falta < 0 && pags.some((p) => p.forma === 'dinheiro') ? -falta : 0;
@@ -252,12 +263,17 @@ function Pagamento({ op, total, cliente, aoFechar, aoConcluir, enviar }) {
   async function concluir() {
     if (falta > 0) return avisar(`Faltam ${moeda(falta)}.`, 'erro');
     if (pags.some((p) => p.forma === 'crediario') && !cliente) return avisar('Crediário exige cliente: escolha o cliente ao lado.', 'erro');
+    if (nfe && !cliente) return avisar('NF-e exige cliente cadastrado: escolha o cliente ao lado (com CPF/CNPJ e endereço).', 'erro');
+    if (num(frete) < 0) return avisar('Frete inválido.', 'erro');
+    if (num(frete) > 0 && !cliente) return avisar('Venda com frete precisa do cliente cadastrado: a nota de entrega leva o CPF/CNPJ e o endereço dele.', 'erro');
+    if (descPerc > Number(op.desconto_maximo) + 0.001) return avisar(`Desconto acima do máximo de ${numero(op.desconto_maximo)}% para ${op.nome}.`, 'erro');
     setEnviando(true);
     try {
       const pagamentos = pags.filter((p) => num(p.valor) > 0).map((p) => ({ forma: p.forma, valor: num(p.valor),
         ...(p.forma === 'crediario' ? { parcelas: Number(p.parcelas) || 1, primeiro_vencimento: p.primeiro_vencimento } : {}) }));
-      const r = await enviar({ pagamentos, cpf: cpf.replace(/\D/g, '') || undefined });
-      aoConcluir(r, pagamentos);
+      const extra = { frete: num(frete), endereco_entrega: endereco.trim() || undefined, documento_fiscal: docFiscal };
+      const r = await enviar({ pagamentos, cpf: nfe ? undefined : cpf.replace(/\D/g, '') || undefined, ...extra });
+      aoConcluir(r, pagamentos, { frete: extra.frete, endereco: extra.endereco_entrega, documento_fiscal: docFiscal });
     } catch (e) { avisar(e.message, 'erro'); setEnviando(false); }
   }
 
@@ -265,8 +281,29 @@ function Pagamento({ op, total, cliente, aoFechar, aoConcluir, enviar }) {
     <Modal aberto largo titulo={`Pagamento — total ${moeda(total)}`} aoFechar={enviando ? () => {} : aoFechar}
       rodape={<>
         <button type="button" className="btn btn-sec" onClick={aoFechar} disabled={enviando}>Voltar</button>
-        <button type="button" className="btn btn-pri" onClick={concluir} disabled={enviando || falta > 0}>{enviando ? 'Finalizando e emitindo NFC-e…' : 'Concluir venda'}</button>
+        <button type="button" className="btn btn-pri" onClick={concluir} disabled={enviando || falta > 0}>{enviando ? `Finalizando e emitindo ${nfe ? 'NF-e' : 'NFC-e'}…` : 'Concluir venda'}</button>
       </>}>
+      <div className="pdv-documento" role="radiogroup" aria-label="Documento fiscal">
+        <label className={`pdv-doc${!nfe ? ' ativo' : ''}`}><input type="radio" name="docfiscal" checked={!nfe} onChange={() => setDocFiscal('nfce')} />
+          <span><strong>NFC-e</strong><small>cupom na térmica (padrão)</small></span></label>
+        <label className={`pdv-doc${nfe ? ' ativo' : ''}`}><input type="radio" name="docfiscal" checked={nfe} onChange={() => setDocFiscal('nfe')} />
+          <span><strong>NF-e</strong><small>DANFE em folha A4 (empresa, entrega, garantia)</small></span></label>
+      </div>
+      {nfe && !cliente && <Aviso tipo="erro">NF-e precisa do cliente cadastrado com CPF/CNPJ e endereço completo: volte e escolha o cliente.</Aviso>}
+      {nfe && cliente && <Aviso>A NF-e sai para <strong>{cliente.nome}</strong> com o endereço do cadastro. Se faltar algo, corrija em Clientes → Editar cadastro.</Aviso>}
+      <div className="filtros">
+        <Campo rotulo={`Desconto em R$ (máx. ${numero(op.desconto_maximo)}%)`}>
+          <input inputMode="decimal" value={descGeral} onChange={(e) => setDescGeral(e.target.value)} placeholder="0,00" />
+        </Campo>
+        <Campo rotulo="Frete (R$)"><input inputMode="decimal" value={frete} onChange={(e) => setFrete(e.target.value)} placeholder="0,00" /></Campo>
+        <Campo rotulo="Endereço de entrega (opcional)" largo>
+          <input value={endereco} onChange={(e) => setEndereco(e.target.value)} maxLength={300} placeholder="Rua, número, bairro, cidade, referência" />
+        </Campo>
+      </div>
+      {descPerc > Number(op.desconto_maximo) + 0.001 && <Aviso tipo="erro">Desconto de {numero(descPerc.toFixed(2))}% acima do permitido para {op.nome}.</Aviso>}
+      {num(frete) > 0 && !cliente && <Aviso tipo="erro">Com frete, escolha o cliente cadastrado: a SEFAZ exige o CPF/CNPJ e o endereço dele na nota de entrega.</Aviso>}
+      {num(frete) > 0 && cliente && !nfe && <p className="texto-fraco">Com frete, a NFC-e sai como entrega a domicílio para o endereço do cadastro de {cliente.nome}; o frete soma no total.</p>}
+      <h3 className="pdv-subtitulo">Pagamento</h3>
       {pags.map((p, k) => (
         <div key={k} className="filtros">
           <Campo rotulo="Forma"><select value={p.forma} onChange={set(k, 'forma')}>{FORMAS.map(([v, r]) => <option key={v} value={v}>{r}</option>)}</select></Campo>
@@ -280,13 +317,15 @@ function Pagamento({ op, total, cliente, aoFechar, aoConcluir, enviar }) {
       ))}
       <button type="button" className="btn btn-sec btn-peq" onClick={() => setPags((l) => [...l, { forma: 'pix', valor: falta > 0 ? String(falta.toFixed(2)).replace('.', ',') : '', parcelas: '1', primeiro_vencimento: somarDias(hoje(), 30) }])}>
         + dividir em outra forma</button>
-      <Campo rotulo="CPF/CNPJ na nota (opcional)"><input value={cpf} onChange={(e) => setCpf(e.target.value)} inputMode="numeric" /></Campo>
+      {!nfe && <Campo rotulo="CPF/CNPJ na nota (opcional)"><input value={cpf} onChange={(e) => setCpf(e.target.value)} inputMode="numeric" /></Campo>}
       <div className="pdv-totais">
+        {num(frete) > 0 && <div><span>Produtos{num(descGeral) > 0 ? ' (com desconto)' : ''}</span><strong>{moeda(totalItens)}</strong></div>}
+        {num(frete) > 0 && <div><span>Frete</span><strong>{moeda(num(frete))}</strong></div>}
         <div><span>Pago</span><strong>{moeda(pago)}</strong></div>
         {falta > 0 && <div className="texto-erro"><span>Falta</span><strong>{moeda(falta)}</strong></div>}
         {troco > 0 && <div className="pdv-total"><span>TROCO</span><strong>{moeda(troco)}</strong></div>}
       </div>
-      <p className="texto-fraco">Cartão: passe na maquininha e confirme aqui. A venda é registrada no caixa e a NFC-e é emitida em seguida.</p>
+      <p className="texto-fraco">Cartão: passe na maquininha e confirme aqui. A venda é registrada no caixa e a {nfe ? 'NF-e' : 'NFC-e'} é emitida em seguida.</p>
     </Modal>
   );
 }
@@ -297,11 +336,13 @@ function ResultadoVenda({ r, op, cliente, descGeral, aoNova }) {
   const [erroNfce, setErroNfce] = useState(r.erro_nfce || (r.nota && r.nota.status !== 'autorizada' ? r.nota.motivo : null));
   const [tentando, setTentando] = useState(false);
   const autorizada = nota?.status === 'autorizada';
+  const ehNfe = r.documento_fiscal === 'nfe';
+  const sigla = ehNfe ? 'NF-e' : 'NFC-e';
   const comprovante = () => imprimirHtml(htmlComprovante({ venda_id: r.venda_id, itens: r.itens, pagamentos: r.pagamentos, desconto_geral: descGeral,
-    total: r.total, troco: r.troco, operador: op.nome, cliente: cliente?.nome, nota }), { titulo: `Venda ${r.venda_id}` });
+    frete: r.frete, endereco: r.endereco, total: r.total, troco: r.troco, operador: op.nome, cliente: cliente?.nome, nota }), { titulo: `Venda ${r.venda_id}` });
   const danfce = () => imprimirNota(nota.id).catch((e) => avisar(`Impressão: ${e.message}`, 'erro'));
 
-  useEffect(() => { if (autorizada && acaoAposEmitir(65) === 'automatico') danfce(); }, []);
+  useEffect(() => { if (autorizada && acaoAposEmitir(ehNfe ? 55 : 65) === 'automatico') danfce(); }, []);
 
   async function tentarDeNovo() {
     setTentando(true);
@@ -317,17 +358,18 @@ function ResultadoVenda({ r, op, cliente, descGeral, aoNova }) {
     <Modal aberto titulo={`Venda ${r.venda_id} concluída`} aoFechar={aoNova}
       rodape={<>
         <button type="button" className="btn btn-sec" onClick={comprovante}>Imprimir comprovante</button>
-        {autorizada && <button type="button" className="btn btn-sec" onClick={danfce}>Imprimir nota (DANFCE)</button>}
+        {autorizada && <button type="button" className="btn btn-sec" onClick={danfce}>{ehNfe ? 'Imprimir DANFE (A4)' : 'Imprimir nota (DANFCE)'}</button>}
         <button type="button" className="btn btn-pri" autoFocus onClick={aoNova}>Nova venda</button>
       </>}>
       <div className="pdv-totais">
         <div><span>Total</span><strong>{moeda(r.total)}</strong></div>
         {r.troco > 0 && <div className="pdv-total"><span>TROCO</span><strong>{moeda(r.troco)}</strong></div>}
       </div>
-      {autorizada && <Aviso tipo="ok">NFC-e {nota.serie}/{nota.numero} autorizada pela SEFAZ{nota.ambiente === 'homologacao' ? ' (homologação, sem valor fiscal)' : ''}.</Aviso>}
+      {autorizada && <Aviso tipo="ok">{sigla} {nota.serie}/{nota.numero} autorizada pela SEFAZ{nota.ambiente === 'homologacao' ? ' (homologação, sem valor fiscal)' : ''}.</Aviso>}
       {!autorizada && (
-        <Aviso tipo="erro">A venda foi gravada e está no caixa, mas a NFC-e não foi autorizada: {erroNfce || 'sem resposta'}.{' '}
-          <button type="button" className="btn btn-sec btn-peq" onClick={tentarDeNovo} disabled={tentando}>{tentando ? 'Emitindo…' : 'Emitir NFC-e de novo'}</button></Aviso>
+        <Aviso tipo="erro">A venda foi gravada e está no caixa, mas a {sigla} não foi autorizada: {erroNfce || 'sem resposta'}.{' '}
+          {ehNfe && 'Se for cadastro do cliente (endereço, CPF/CNPJ, IE), corrija em Clientes e tente de novo. '}
+          <button type="button" className="btn btn-sec btn-peq" onClick={tentarDeNovo} disabled={tentando}>{tentando ? 'Emitindo…' : `Emitir ${sigla} de novo`}</button></Aviso>
       )}
     </Modal>
   );

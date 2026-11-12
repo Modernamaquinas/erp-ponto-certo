@@ -15,7 +15,7 @@ function linhasItens(itens) {
 }
 
 /** Comprovante de venda (não substitui o DANFCE; traz o número da NFC-e quando houver). */
-export function htmlComprovante({ venda_id, itens, pagamentos, desconto_geral = 0, total, troco = 0, operador, cliente, nota }) {
+export function htmlComprovante({ venda_id, itens, pagamentos, desconto_geral = 0, frete = 0, endereco, total, troco = 0, operador, cliente, nota }) {
   const bruto = itens.reduce((s, i) => s + Number(i.quantidade) * Number(i.preco_unitario), 0);
   const desc = itens.reduce((s, i) => s + Number(i.desconto || 0), 0) + Number(desconto_geral || 0);
   return `${CABECALHO}<h1>COMPROVANTE DE VENDA</h1>
@@ -24,10 +24,12 @@ export function htmlComprovante({ venda_id, itens, pagamentos, desconto_geral = 
     <table>${linhasItens(itens)}</table><hr/>
     <table><tr><td>Subtotal</td><td class="d">${moeda(bruto)}</td></tr>
     ${desc ? `<tr><td>Descontos</td><td class="d">-${moeda(desc)}</td></tr>` : ''}
+    ${Number(frete) ? `<tr><td>Frete</td><td class="d">${moeda(frete)}</td></tr>` : ''}
     <tr class="g"><td>TOTAL</td><td class="d">${moeda(total)}</td></tr>
     ${pagamentos.map((p) => `<tr><td>${esc(FORMAS[p.forma] || p.forma)}${p.parcelas > 1 ? ` ${p.parcelas}x` : ''}</td><td class="d">${moeda(p.valor)}</td></tr>`).join('')}
     ${troco > 0 ? `<tr><td>Troco</td><td class="d">${moeda(troco)}</td></tr>` : ''}</table><hr/>
-    <div class="c">${nota?.status === 'autorizada' ? `NFC-e nº ${esc(nota.numero)} série ${esc(nota.serie)}<br/>Chave: ${esc(nota.chave)}` : 'NFC-e pendente de emissão'}</div>
+    ${endereco ? `<div>Entrega: ${esc(endereco)}</div><hr/>` : ''}
+    <div class="c">${nota?.status === 'autorizada' ? `${nota.modelo === 55 ? 'NF-e' : 'NFC-e'} nº ${esc(nota.numero)} série ${esc(nota.serie)}<br/>Chave: ${esc(nota.chave)}` : 'Nota fiscal pendente de emissão'}</div>
     <div class="c">Obrigado pela preferência!</div>`;
 }
 

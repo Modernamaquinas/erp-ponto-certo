@@ -56,7 +56,8 @@ export async function emitirNota(sb, usuario, corpo) {
   if (corpo.cliente_id) destinatario = await destinatarioDoCliente(sb, Number(corpo.cliente_id));
   else if (modelo === 65 && corpo.cpf) destinatario = { cpf_cnpj: corpo.cpf, nome: corpo.nome_consumidor || null };
   const base = { modelo, ambiente, serie, itens, pagamentos: corpo.pagamentos, destinatario, natOp: cfg.natureza_operacao,
-    infCpl: [cfg.inf_complementar, corpo.inf_complementar].filter(Boolean).join(' ') || undefined };
+    infCpl: [cfg.inf_complementar, corpo.inf_complementar].filter(Boolean).join(' ') || undefined,
+    frete: Number(corpo.frete) || 0 };
 
   // valida tudo antes de gastar um número
   try { montarNota({ ...base, numero: 1 }); } catch (e) { if (e instanceof ErroNota) throw erro400(e.message); throw e; }

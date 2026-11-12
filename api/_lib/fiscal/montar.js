@@ -72,7 +72,7 @@ export function cfopDestino(cfop, interestadual) {
  * @param {object} [p.destinatario] { nome, cpf_cnpj, ie, email, endereco: { logradouro, numero, complemento, bairro, cMun, municipio, uf, cep, fone } }
  */
 export function montarNota({ modelo, ambiente, serie, numero, itens, pagamentos, destinatario, natOp = 'VENDA DE MERCADORIA',
-  infCpl, dhEmi = dataHoraSP(), emitente = EMITENTE }) {
+  infCpl, dhEmi = dataHoraSP(), emitente = EMITENTE, frete = 0 }) {
   if (![55, 65].includes(modelo)) throw new ErroNota('Modelo deve ser 55 (NF-e) ou 65 (NFC-e)');
   if (!itens?.length) throw new ErroNota('A nota precisa de pelo menos um item');
   if (itens.length > 990) throw new ErroNota('Máximo de 990 itens por nota');
@@ -83,6 +83,14 @@ export function montarNota({ modelo, ambiente, serie, numero, itens, pagamentos,
     cnpj_emitente: emitente.cnpj, natureza_operacao: String(natOp).slice(0, 60), data_emissao: dhEmi,
     numero: String(numero), serie: String(serie), modalidade_frete: 9, presenca_comprador: 1,
   };
+  // Frete cobrado do cliente: modFrete 0 (por conta do emitente, CIF); o valor vai rateado nos itens e o total tem de
+  // bater (rejeição 535). Na NFC-e, frete só em entrega a domicílio (indPres 4, senão rejeição 753), e a SEFAZ exige o
+  // destinatário identificado (787) e com endereço (788) — testado em homologação.
+  const vFrete = r2(frete || 0);
+  if (vFrete < 0) throw new ErroNota('Frete inválido');
+  const entregaNfce = nfce && vFrete > 0;
+  if (vFrete > 0) nota.modalidade_frete = 0;
+  if (entregaNfce) nota.presenca_comprador = 4;
 
   // destinatário
   const doc = so(destinatario?.cpf_cnpj);
@@ -93,6 +101,7 @@ export function montarNota({ modelo, ambiente, serie, numero, itens, pagamentos,
   const ieDest = so(destinatario?.ie);
   const contribuinte = !nfce && doc.length === 14 && ieDest.length > 0;
   if (!nfce && !doc) throw new ErroNota('NF-e exige CPF ou CNPJ do destinatário');
+  if (entregaNfce && !doc) throw new ErroNota('NFC-e com frete (entrega a domicílio) exige cliente cadastrado com CPF/CNPJ e endereço');
   if (doc) {
     nota[doc.length === 14 ? 'cnpj_destinatario' : 'cpf_destinatario'] = doc;
     const nome = homolog && !nfce ? HOMOLOGACAO_TEXTO : destinatario.nome;
@@ -100,14 +109,16 @@ export function montarNota({ modelo, ambiente, serie, numero, itens, pagamentos,
     if (destinatario.email) nota.email_destinatario = String(destinatario.email).slice(0, 60);
   }
   nota.local_destino = interestadual ? 2 : 1;
-  if (!nfce) {
+  if (!nfce || entregaNfce) {
     const e = destinatario.endereco;
-    if (!e?.logradouro || !e?.cMun || !e?.uf || !e?.municipio) throw new ErroNota('NF-e exige o endereço completo do destinatário (com cidade)');
+    if (!e?.logradouro || !e?.cMun || !e?.uf || !e?.municipio) {
+      throw new ErroNota(`${nfce ? 'NFC-e com frete (entrega)' : 'NF-e'} exige o endereço completo do destinatário (com cidade). Corrija o cadastro do cliente.`);
+    }
     // a SEFAZ recusa logradouro/bairro com menos de 2 letras (cadastros antigos têm "C", ".")
     if (String(e.logradouro).trim().length < 2) throw new ErroNota('Endereço do cliente incompleto (logradouro). Corrija o cadastro.');
     if (e.bairro && String(e.bairro).trim().length < 2) throw new ErroNota('Bairro do cliente incompleto. Corrija o cadastro.');
+    if (!nfce) Object.assign(nota, { tipo_documento: 1, finalidade_emissao: 1, consumidor_final: contribuinte ? 0 : 1, data_entrada_saida: dhEmi });
     Object.assign(nota, {
-      tipo_documento: 1, finalidade_emissao: 1, consumidor_final: contribuinte ? 0 : 1, data_entrada_saida: dhEmi,
       indicador_inscricao_estadual_destinatario: contribuinte ? 1 : 9,
       logradouro_destinatario: e.logradouro, numero_destinatario: e.numero || 'S/N', bairro_destinatario: e.bairro || 'CENTRO',
       municipio_destinatario: e.municipio, codigo_municipio_destinatario: String(e.cMun), uf_destinatario: e.uf.toUpperCase(),
@@ -162,8 +173,20 @@ export function montarNota({ modelo, ambiente, serie, numero, itens, pagamentos,
     if (tItem > 0) item.valor_total_tributos = tItem;
     return item;
   });
-  const vNF = r2(vProd - vDesc);
-  if (!nfce) Object.assign(nota, { valor_produtos: vProd, valor_desconto: vDesc, valor_total: vNF, valor_frete: 0, valor_seguro: 0 });
+  // rateio do frete nos itens, proporcional ao valor líquido; o último absorve os centavos
+  if (vFrete > 0) {
+    const liquidos = nota.items.map((it) => r2(it.valor_bruto - (it.valor_desconto || 0)));
+    const base = liquidos.reduce((a, b) => a + b, 0);
+    let resto = vFrete;
+    nota.items.forEach((it, k) => {
+      const parte = k === nota.items.length - 1 ? resto : Math.min(resto, r2(vFrete * liquidos[k] / base));
+      resto = r2(resto - parte);
+      if (parte > 0) it.valor_frete = parte;
+    });
+    nota.valor_frete = vFrete;
+  }
+  const vNF = r2(vProd - vDesc + vFrete);
+  if (!nfce) Object.assign(nota, { valor_produtos: vProd, valor_desconto: vDesc, valor_total: vNF, valor_frete: vFrete, valor_seguro: 0 });
 
   // pagamentos
   if (!pagamentos?.length) throw new ErroNota('Informe a forma de pagamento');

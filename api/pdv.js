@@ -2,11 +2,12 @@
 // de 4 dígitos do operador, conferido no banco (permissões de desconto, estoque e custo).
 //   operador            { codigo }                       -> { operador }
 //   finalizar           { codigo, itens, pagamentos, ... , emitir_nfce?, cpf?, cartoes? } -> { venda_id, troco, nota? }
-//   emitir_nfce         { venda_id, cpf? }               -> { nota }   (nova tentativa)
+//   emitir_nfce         { venda_id, cpf? }               -> { nota }   (nova tentativa: NFC-e ou NF-e, conforme a venda)
+// finalizar aceita ainda: frete?, endereco_entrega?, documento_fiscal? ('nfce' | 'nfe' = DANFE A4, exige cliente)
 //   orcamento_salvar    { codigo, id?, itens, ... }      -> { id }
 //   orcamento_cancelar  { codigo, id }
 import { supabaseServico, exigirUsuario, rota, ErroHttp } from './_lib/supabase.js';
-import { emitirNfceDaVenda } from './_lib/pdv.js';
+import { emitirNotaDaVenda } from './_lib/pdv.js';
 
 export const config = { maxDuration: 60 };
 const TODOS = ['admin', 'financeiro', 'vendedor'];
@@ -38,7 +39,8 @@ export default rota(async (req, res) => {
       const op = await operador(sb, c.codigo);
       const p = { operador_codigo: String(c.codigo), cliente_id: c.cliente_id || null, cliente_nome: c.cliente_nome || null, cpf: c.cpf || null,
         observacao: c.observacao || null, num_caixa: c.num_caixa || null, orcamento_id: c.orcamento_id || null,
-        desconto_geral: c.desconto_geral || 0, itens: c.itens || [], pagamentos: c.pagamentos || [] };
+        desconto_geral: c.desconto_geral || 0, itens: c.itens || [], pagamentos: c.pagamentos || [],
+        frete: Number(c.frete) || 0, endereco_entrega: c.endereco_entrega || null, documento_fiscal: c.documento_fiscal === 'nfe' ? 'nfe' : 'nfce' };
       const { data: vendaId, error } = await sb.rpc('finalizar_venda', { p });
       if (error) throw erroBanco(error);
       const venda = (await sb.from('vendas').select('id, total').eq('id', vendaId).single()).data;
@@ -47,7 +49,7 @@ export default rota(async (req, res) => {
       if (c.emitir_nfce !== false) {
         // a venda já está gravada: se a NFC-e falhar, ela pode ser emitida de novo depois (acao emitir_nfce)
         try {
-          resposta.nota = await emitirNfceDaVenda(sb, { nome: `${op.nome} (op.)` }, vendaId, { cpf: c.cpf, cartoes: c.cartoes || [] });
+          resposta.nota = await emitirNotaDaVenda(sb, { nome: `${op.nome} (op.)` }, vendaId, { cpf: c.cpf, cartoes: c.cartoes || [] });
         } catch (e) {
           resposta.erro_nfce = e.message;
         }
@@ -56,7 +58,7 @@ export default rota(async (req, res) => {
     }
 
     case 'emitir_nfce':
-      return res.json({ nota: await emitirNfceDaVenda(sb, usuario, Number(c.venda_id), { cpf: c.cpf }) });
+      return res.json({ nota: await emitirNotaDaVenda(sb, usuario, Number(c.venda_id), { cpf: c.cpf }) });
 
     case 'orcamento_salvar': {
       await operador(sb, c.codigo);

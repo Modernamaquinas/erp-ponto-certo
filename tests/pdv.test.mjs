@@ -110,6 +110,28 @@ test('pré-venda: exige nome do cliente, fica aberta para o caixa e vira venda u
   } finally { await db.close(); }
 });
 
+test('frete, endereço de entrega, desconto em R$ e escolha NF-e na finalização', async () => {
+  const db = await preparar();
+  try {
+    const itens = [{ produto_id: 6, quantidade: 2, preco_unitario: 20 }];
+    // total = 40 - 4 de desconto (10%, o máximo do operador) + 12,50 de frete = 48,50
+    // frete = entrega a domicílio: exige cliente (a nota leva CPF/CNPJ e endereço do cadastro)
+    await assert.rejects(venda(db, { operador_codigo: '1234', itens, desconto_geral: 4, frete: 12.5, pagamentos: [{ forma: 'pix', valor: 48.5 }] }), /frete exige cliente/);
+    await assert.rejects(venda(db, { operador_codigo: '1234', cliente_id: 10, itens, desconto_geral: 4, frete: 12.5, pagamentos: [{ forma: 'pix', valor: 36 }] }), /menor que o total \(48.50\)/);
+    const id = await venda(db, { operador_codigo: '1234', cliente_id: 10, itens, desconto_geral: 4, frete: 12.5, endereco_entrega: '  Rua A, 10 - Centro ',
+      pagamentos: [{ forma: 'dinheiro', valor: 50 }] });
+    assert.deepEqual(await um(db, 'select total::text, desconto::text, valor_frete::text, endereco_entrega, documento_fiscal from vendas where id = $1', [id]),
+      { total: '48.50', desconto: '4.00', valor_frete: '12.50', endereco_entrega: 'Rua A, 10 - Centro', documento_fiscal: 'nfce' });
+    assert.equal((await um(db, `select sum(coalesce(entrada, 0) - coalesce(saida, 0))::text as s from caixa_lancamentos where documento = $1`, [String(id)])).s, '48.50');
+    await assert.rejects(venda(db, { operador_codigo: '1234', itens, documento_fiscal: 'nfe', pagamentos: [{ forma: 'pix', valor: 40 }] }), /NF-e exige cliente/);
+    await assert.rejects(venda(db, { operador_codigo: '1234', cliente_id: 10, itens, frete: -1, pagamentos: [{ forma: 'pix', valor: 40 }] }), /Frete inválido/);
+    // endereço de entrega sem frete não exige cliente (vai só como observação na nota)
+    await venda(db, { operador_codigo: '1234', itens, endereco_entrega: 'Rua B, 5', pagamentos: [{ forma: 'pix', valor: 40 }] });
+    const nfe = await venda(db, { operador_codigo: '1234', cliente_id: 10, itens, documento_fiscal: 'nfe', pagamentos: [{ forma: 'pix', valor: 40 }] });
+    assert.equal((await um(db, 'select documento_fiscal from vendas where id = $1', [nfe])).documento_fiscal, 'nfe');
+  } finally { await db.close(); }
+});
+
 test('rateio do desconto geral entre os itens (NFC-e)', () => {
   const r = ratearDesconto([{ quantidade: 2, preco_unitario: 10, desconto: 0 }, { quantidade: 1, preco_unitario: 30, desconto: 1 }], 5);
   assert.deepEqual(r.map((i) => i.desconto), [2.04, 3.96]);

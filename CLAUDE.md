@@ -53,3 +53,8 @@ ERP web da Ponto Certo Ferragens (pt-BR), substituindo o DirectControl/Acertsoft
   Folha A4 (DANFE da NF-e, PDF): **HP Laser 107w**. O configurador grava o nome dela em `impressora-a4.txt` e baixa o
   SumatraPDF portátil para a pasta do agente; `POST /imprimir-pdf` do agente imprime com `-print-to`. `imprimirNota` usa
   `imprimirPdfNoAgente` e só cai na janela do navegador se o agente não tiver impressora A4 (no atalho kiosk iria para a térmica).
+- Finalização do PDV (015): desconto em R$ (= desconto_geral), frete e endereço de entrega opcionais, e escolha NFC-e ou
+  NF-e (DANFE A4). O frete soma no total e vai rateado nos itens da nota. **NFC-e com frete = entrega a domicílio
+  (indPres 4) e a SEFAZ exige destinatário com CPF/CNPJ (787) e endereço (788)** — por isso venda com frete exige cliente
+  cadastrado (testado em homologação). Endereço digitado sem frete vai só em infCpl ("ENTREGA: ..."). NF-e pelo PDV vale
+  para qualquer operador (a emissão avulsa em Notas Fiscais continua só admin/financeiro).

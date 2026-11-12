@@ -53,6 +53,32 @@ test('NF-e interestadual para contribuinte vira CFOP 6xxx e exige endereço', ()
     destinatario: { nome: 'X', cpf_cnpj: '11144477735' }, pagamentos: [{ forma: 'dinheiro', valor: 5 }] }), /endereço completo/);
 });
 
+test('frete: rateado nos itens, soma no total; NFC-e com frete é entrega a domicílio com cliente e endereço', () => {
+  const destinatario = { nome: 'CLIENTE', cpf_cnpj: '11144477735',
+    endereco: { logradouro: 'RUA A', numero: '10', bairro: 'CENTRO', cMun: '4305108', municipio: 'CAXIAS DO SUL', uf: 'RS', cep: '95010-000' } };
+  // líquidos: 24,00 e 3,50 (total 27,50); frete 10,00 -> 8,73 + 1,27
+  const { nota: n, total } = montarNota({ modelo: 65, ambiente: 'producao', serie: 10, numero: 1, itens: [ITEM, ITEM2], frete: 10, destinatario,
+    pagamentos: [{ forma: 'pix', valor: 37.5 }] });
+  assert.equal(total, 37.5);
+  assert.deepEqual([n.modalidade_frete, n.presenca_comprador, n.valor_frete], [0, 4, 10]);
+  assert.deepEqual(n.items.map((i) => i.valor_frete), [8.73, 1.27]);
+  assert.deepEqual([n.cpf_destinatario, n.logradouro_destinatario, n.codigo_municipio_destinatario, n.cep_destinatario, n.indicador_inscricao_estadual_destinatario],
+    ['11144477735', 'RUA A', '4305108', '95010000', 9]);
+  assert.equal(n.tipo_documento, undefined); // campos só da NF-e não entram na NFC-e
+  // SEFAZ: 787 (sem destinatário) e 788 (sem endereço) — barrados antes de gastar número
+  assert.throws(() => montarNota({ modelo: 65, ambiente: 'producao', serie: 10, numero: 1, itens: [ITEM], frete: 5, pagamentos: [{ forma: 'pix', valor: 29 }] }), /exige cliente cadastrado/);
+  assert.throws(() => montarNota({ modelo: 65, ambiente: 'producao', serie: 10, numero: 1, itens: [ITEM], frete: 5, destinatario: { cpf_cnpj: '11144477735' },
+    pagamentos: [{ forma: 'pix', valor: 29 }] }), /endereço completo/);
+  assert.throws(() => montarNota({ modelo: 65, ambiente: 'producao', serie: 10, numero: 1, itens: [ITEM], frete: 5, destinatario,
+    pagamentos: [{ forma: 'pix', valor: 24 }] }), /menores que o total da nota \(29.00\)/);
+  // sem frete continua presencial e sem endereço
+  const p = montarNota({ modelo: 65, ambiente: 'producao', serie: 10, numero: 1, itens: [ITEM2], pagamentos: [{ forma: 'pix', valor: 3.5 }] }).nota;
+  assert.deepEqual([p.presenca_comprador, p.modalidade_frete, p.valor_frete, p.logradouro_destinatario], [1, 9, undefined, undefined]);
+  const nfe = montarNota({ modelo: 55, ambiente: 'producao', serie: 2, numero: 1, itens: [ITEM2], destinatario, frete: 2,
+    pagamentos: [{ forma: 'pix', valor: 5.5 }] }).nota;
+  assert.deepEqual([nfe.valor_produtos, nfe.valor_frete, nfe.valor_total, nfe.presenca_comprador, nfe.items[0].valor_frete], [3.5, 2, 5.5, 1, 2]);
+});
+
 test('validações que barram a nota antes de gastar número', () => {
   const base = { modelo: 65, ambiente: 'producao', serie: 10, numero: 1, pagamentos: [{ forma: 'dinheiro', valor: 100 }] };
   assert.throws(() => montarNota({ ...base, itens: [{ ...ITEM, ncm: null }] }), /NCM/);

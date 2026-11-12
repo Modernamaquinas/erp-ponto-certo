@@ -344,3 +344,12 @@ button.cartao:hover { border-color: var(--marca); }
 .agente-status.erro { background: var(--erro-fundo); color: var(--erro); }
 .lista-passos { padding-left: 20px; line-height: 1.6; }
 @media (max-width: 900px) { .etq { grid-template-columns: 1fr; } .etq-lateral { position: static; } }
+
+/* ---- finalização: documento fiscal (NFC-e / NF-e), frete e entrega (2026-11-12) */
+.pdv-documento { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.pdv-doc { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--borda); border-radius: 10px; padding: 10px 12px; cursor: pointer; background: var(--superficie); }
+.pdv-doc.ativo { border-color: var(--marca); box-shadow: 0 0 0 1px var(--marca) inset; }
+.pdv-doc input { margin-top: 3px; }
+.pdv-doc span { display: flex; flex-direction: column; gap: 2px; }
+.pdv-doc small { opacity: .75; font-size: 12px; }
+.pdv-subtitulo { margin: 12px 0 4px; font-size: 14px; }
