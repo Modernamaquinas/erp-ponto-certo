@@ -255,13 +255,18 @@ function Pagamento({ op, total: totalItens, cliente, descGeral, setDescGeral, to
   const [enviando, setEnviando] = useState(false);
   const descPerc = totalProdutos ? ((descItens + num(descGeral)) / totalProdutos) * 100 : 0;
   const nfe = docFiscal === 'nfe';
-  const pago = r2(pags.reduce((s, p) => s + num(p.valor), 0));
+  // dinheiro: "recebido" é a nota que o cliente entregou; o que passa do valor vira troco (o servidor já trata o excesso em dinheiro como troco)
+  const efetivo = (p) => (p.forma === 'dinheiro' && num(p.recebido) > num(p.valor) ? num(p.recebido) : num(p.valor));
+  const pago = r2(pags.reduce((s, p) => s + efetivo(p), 0));
   const falta = r2(total - pago);
   const troco = falta < 0 && pags.some((p) => p.forma === 'dinheiro') ? -falta : 0;
   const set = (k, c) => (e) => setPags((l) => l.map((x, j) => (j === k ? { ...x, [c]: e.target.value } : x)));
 
   async function concluir() {
     if (falta > 0) return avisar(`Faltam ${moeda(falta)}.`, 'erro');
+    if (pags.some((p) => p.forma === 'dinheiro' && String(p.recebido || '').trim() && num(p.recebido) < num(p.valor))) {
+      return avisar('O dinheiro recebido é menor que o valor em dinheiro: corrija o recebido ou divida o restante em outra forma.', 'erro');
+    }
     if (pags.some((p) => p.forma === 'crediario') && !cliente) return avisar('Crediário exige cliente: escolha o cliente ao lado.', 'erro');
     if (nfe && !cliente) return avisar('NF-e exige cliente cadastrado: escolha o cliente ao lado (com CPF/CNPJ e endereço).', 'erro');
     if (num(frete) < 0) return avisar('Frete inválido.', 'erro');
@@ -269,7 +274,7 @@ function Pagamento({ op, total: totalItens, cliente, descGeral, setDescGeral, to
     if (descPerc > Number(op.desconto_maximo) + 0.001) return avisar(`Desconto acima do máximo de ${numero(op.desconto_maximo)}% para ${op.nome}.`, 'erro');
     setEnviando(true);
     try {
-      const pagamentos = pags.filter((p) => num(p.valor) > 0).map((p) => ({ forma: p.forma, valor: num(p.valor),
+      const pagamentos = pags.filter((p) => efetivo(p) > 0).map((p) => ({ forma: p.forma, valor: efetivo(p),
         ...(p.forma === 'crediario' ? { parcelas: Number(p.parcelas) || 1, primeiro_vencimento: p.primeiro_vencimento } : {}) }));
       const extra = { frete: num(frete), endereco_entrega: endereco.trim() || undefined, documento_fiscal: docFiscal };
       const r = await enviar({ pagamentos, cpf: nfe ? undefined : cpf.replace(/\D/g, '') || undefined, ...extra });
@@ -307,7 +312,15 @@ function Pagamento({ op, total: totalItens, cliente, descGeral, setDescGeral, to
       {pags.map((p, k) => (
         <div key={k} className="filtros">
           <Campo rotulo="Forma"><select value={p.forma} onChange={set(k, 'forma')}>{FORMAS.map(([v, r]) => <option key={v} value={v}>{r}</option>)}</select></Campo>
-          <Campo rotulo="Valor"><input inputMode="decimal" value={p.valor} onChange={set(k, 'valor')} autoFocus={k === 0} /></Campo>
+          <Campo rotulo="Valor"><input inputMode="decimal" value={p.valor} onChange={set(k, 'valor')} autoFocus={k === 0 && p.forma !== 'dinheiro'} /></Campo>
+          {p.forma === 'dinheiro' && <>
+            <Campo rotulo="Dinheiro recebido (R$)">
+              <input className="pdv-recebido" inputMode="decimal" value={p.recebido || ''} onChange={set(k, 'recebido')} placeholder="0,00" autoFocus={k === 0} />
+            </Campo>
+            {num(p.recebido) > 0 && (num(p.recebido) >= num(p.valor)
+              ? <div className="pdv-troco-linha"><span>Troco</span><strong>{moeda(r2(num(p.recebido) - num(p.valor)))}</strong></div>
+              : <div className="pdv-troco-linha falta"><span>Faltam</span><strong>{moeda(r2(num(p.valor) - num(p.recebido)))}</strong></div>)}
+          </>}
           {p.forma === 'crediario' && <>
             <Campo rotulo="Parcelas"><select value={p.parcelas} onChange={set(k, 'parcelas')}>{Array.from({ length: 12 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}x</option>)}</select></Campo>
             <Campo rotulo="1º vencimento"><input type="date" value={p.primeiro_vencimento} onChange={set(k, 'primeiro_vencimento')} /></Campo>
@@ -321,9 +334,12 @@ function Pagamento({ op, total: totalItens, cliente, descGeral, setDescGeral, to
       <div className="pdv-totais">
         {num(frete) > 0 && <div><span>Produtos{num(descGeral) > 0 ? ' (com desconto)' : ''}</span><strong>{moeda(totalItens)}</strong></div>}
         {num(frete) > 0 && <div><span>Frete</span><strong>{moeda(num(frete))}</strong></div>}
-        <div><span>Pago</span><strong>{moeda(pago)}</strong></div>
-        {falta > 0 && <div className="texto-erro"><span>Falta</span><strong>{moeda(falta)}</strong></div>}
-        {troco > 0 && <div className="pdv-total"><span>TROCO</span><strong>{moeda(troco)}</strong></div>}
+      </div>
+      <div className="pdv-valores">
+        <div className="pdv-valor v-total"><span>Total</span><strong>{moeda(total)}</strong></div>
+        <div className="pdv-valor v-recebido"><span>Recebido</span><strong>{moeda(pago)}</strong></div>
+        {falta > 0 && <div className="pdv-valor v-falta"><span>Falta</span><strong>{moeda(falta)}</strong></div>}
+        {troco > 0 && <div className="pdv-valor v-troco"><span>Troco</span><strong>{moeda(troco)}</strong></div>}
       </div>
       <p className="texto-fraco">Cartão: passe na maquininha e confirme aqui. A venda é registrada no caixa e a {nfe ? 'NF-e' : 'NFC-e'} é emitida em seguida.</p>
     </Modal>
@@ -361,9 +377,9 @@ function ResultadoVenda({ r, op, cliente, descGeral, aoNova }) {
         {autorizada && <button type="button" className="btn btn-sec" onClick={danfce}>{ehNfe ? 'Imprimir DANFE (A4)' : 'Imprimir nota (DANFCE)'}</button>}
         <button type="button" className="btn btn-pri" autoFocus onClick={aoNova}>Nova venda</button>
       </>}>
-      <div className="pdv-totais">
-        <div><span>Total</span><strong>{moeda(r.total)}</strong></div>
-        {r.troco > 0 && <div className="pdv-total"><span>TROCO</span><strong>{moeda(r.troco)}</strong></div>}
+      <div className="pdv-valores">
+        <div className="pdv-valor v-total"><span>Total</span><strong>{moeda(r.total)}</strong></div>
+        {r.troco > 0 && <div className="pdv-valor v-troco"><span>Troco</span><strong>{moeda(r.troco)}</strong></div>}
       </div>
       {autorizada && <Aviso tipo="ok">{sigla} {nota.serie}/{nota.numero} autorizada pela SEFAZ{nota.ambiente === 'homologacao' ? ' (homologação, sem valor fiscal)' : ''}.</Aviso>}
       {!autorizada && (
