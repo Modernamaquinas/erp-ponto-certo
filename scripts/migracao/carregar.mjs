@@ -11,8 +11,9 @@ const ident = (s) => `"${String(s).replace(/"/g, '""')}"`;
  * @param {string[]} [op.conflito=['id']]  colunas do ON CONFLICT
  * @param {Record<string,string>} [op.set]  expressões SQL que substituem `excluded.col` no UPDATE
  *        (podem citar colunas que não estão no INSERT)
+ * @param {boolean} [op.apenasNovos]  só insere; linhas que já existem ficam como estão
  */
-export async function upsert(db, tabela, linhas, { conflito = ['id'], set = {}, lote = 500 } = {}) {
+export async function upsert(db, tabela, linhas, { conflito = ['id'], set = {}, lote = 500, apenasNovos = false } = {}) {
   if (!linhas.length) return 0;
 
   // Chave repetida no mesmo INSERT ... ON CONFLICT dá erro: fica a última ocorrência.
@@ -24,7 +25,7 @@ export async function upsert(db, tabela, linhas, { conflito = ['id'], set = {}, 
   const atualizar = colunas.filter((c) => !conflito.includes(c));
   const sets = atualizar.map((c) => `${ident(c)} = ${set[c] ?? `excluded.${ident(c)}`}`);
   for (const [c, expr] of Object.entries(set)) if (!colunas.includes(c)) sets.push(`${ident(c)} = ${expr}`);
-  const acao = sets.length ? `do update set ${sets.join(', ')}` : 'do nothing';
+  const acao = sets.length && !apenasNovos ? `do update set ${sets.join(', ')}` : 'do nothing';
 
   let total = 0;
   for (let i = 0; i < unicas.length; i += lote) {

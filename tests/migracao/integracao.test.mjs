@@ -70,6 +70,18 @@ test('migração completa e re-sincronização', { skip: !FDB && 'defina FDB_TES
     assert.equal(pr.p, '123.45');
     assert.notEqual(Number(pr.e), -999);
     assert.equal((await um(`select nome from clientes where id = 2000`)).nome, 'NOME EDITADO NO ERP');
+
+    // 6) Modelos de etiqueta: o 2 (padrão da loja) gera o mesmo layout; ajuste no ERP não é desfeito pela sincronização
+    const { gerarPPLA } = await import('../../src/lib/etiquetas.js');
+    assert.ok(Number((await um(`select count(*) as n from etiqueta_modelos`)).n) >= 50);
+    const m2 = await um(`select * from etiqueta_modelos where padrao`);
+    assert.equal(m2.id, 2);
+    const campos2 = (await db.query(`select * from etiqueta_campos where modelo_id = 2`)).rows;
+    const ppla = gerarPPLA(m2, campos2, [{ produto: { id: 1, nome: 'TESTE', codigo_barras: '7890203135943', preco_venda: 1 }, quantidade: 3 }]);
+    assert.ok(ppla.includes('1E8202500160007C7890203135943') && ppla.includes('1E8202500160283C7890203135943'), ppla);
+    await db.query(`update etiqueta_modelos set temperatura = 14 where id = 2`);
+    await executarMigracao({ fb, db, somente: ['etiqueta_modelos', 'etiqueta_campos'], log: () => {} });
+    assert.equal(Number((await um(`select temperatura from etiqueta_modelos where id = 2`)).temperatura), 14);
   } finally {
     await fb.fechar();
     await db.close();

@@ -336,6 +336,31 @@ export const TABELAS = [
     filtrar: (o) => o.data !== null,
   },
   {
+    // Modelos de etiqueta: só entram os novos (apenasNovos) — ajustes feitos no ERP não são desfeitos.
+    tabela: 'etiqueta_modelos',
+    apenasNovos: true,
+    extrair: (fb) => fb.consultar(`SELECT CODIGO, DESCRICAO, LINGUAGEM, QUEIMA, TAMANHO_PIXEL, AVANCO_PCORTE, MODELO_CLIENTE FROM ETIQUETAS_PERSONALIZADAS`),
+    transformar: (r) => {
+      const ling = (txt(r.linguagem) || 'PPLA').toUpperCase();
+      return { id: r.codigo, descricao: txt(r.descricao) || `MODELO ${r.codigo}`, linguagem: ['PPLA', 'PPLB', 'LASER'].includes(ling) ? ling : 'LASER',
+        temperatura: num(String(r.queima ?? '').replace(/D/g, '')) || 10, pixel: txt(r.tamanho_pixel) || 'D11',
+        avanco: num(r.avanco_pcorte) ?? 320, padrao: bool(r.modelo_cliente), origem: 'legado' };
+    },
+  },
+  {
+    tabela: 'etiqueta_campos',
+    apenasNovos: true,
+    extrair: (fb) => fb.consultar(`SELECT CODIGO, COD_ETIQUETA, ORIENTACAO, FONTE, LARGURA, ALTURA, SUBTIPOFONTE, DIST_BAIXO, DIST_ESQUERDA,
+        TEXTO, NUM_COLUNA, QTDE_CARACTERS, ORDENA_CAMPO FROM ETIQUETAS_CAMPOS`),
+    transformar: (r, c) => {
+      if (!c.ids.etiqueta_modelos.has(r.cod_etiqueta) || !txt(r.texto) || !txt(r.fonte)) return null;
+      return { id: r.codigo, modelo_id: r.cod_etiqueta, coluna: num(r.num_coluna) || 1, orientacao: txt(r.orientacao) || '1', fonte: txt(r.fonte),
+        mult_h: txt(r.largura) || '1', mult_v: txt(r.altura) || '1', subtipo: (txt(r.subtipofonte) || '000').padStart(3, '0'),
+        linha: num(r.dist_baixo) ?? 0, esquerda: num(r.dist_esquerda) ?? 0, texto: String(r.texto).trim(),
+        max_caracteres: num(r.qtde_caracters), ordem: num(r.ordena_campo) };
+    },
+  },
+  {
     // TEF do caixa (PayGo Web: Cielo, Stone, PagSeguro, Vero, PIX Shipay). Operações administrativas
     // (ADM/ATV: abertura, reimpressão) não têm valor e ficam de fora.
     tabela: 'tef_transacoes',
@@ -367,4 +392,4 @@ export const TABELAS = [
 
 // Tabelas cujos ids são consultados no destino para validar FKs dos filhos.
 export const CONJUNTOS_DE_IDS = ['cidades', 'formas_pagamento', 'plano_contas', 'grupos_produto', 'subgrupos_produto',
-  'clientes', 'fornecedores', 'produtos', 'vendas', 'compras', 'contas_receber', 'orcamentos'];
+  'clientes', 'fornecedores', 'produtos', 'vendas', 'compras', 'contas_receber', 'orcamentos', 'etiqueta_modelos'];

@@ -23,7 +23,7 @@ async function preparar() {
     alter default privileges in schema public grant all on tables to anon, authenticated;
     alter default privileges in schema public grant all on sequences to anon, authenticated;
   `);
-  for (const f of ['002_seguranca.sql', '004_cartoes_seguranca.sql', '006_fiscal_seguranca.sql', '008_pdv_seguranca.sql', '011_edicao_seguranca.sql']) {
+  for (const f of ['002_seguranca.sql', '004_cartoes_seguranca.sql', '006_fiscal_seguranca.sql', '008_pdv_seguranca.sql', '011_edicao_seguranca.sql', '013_etiquetas_seguranca.sql']) {
     await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'));
   }
   await db.exec(`
@@ -116,6 +116,13 @@ test('RLS por papel', async () => {
     await assert.rejects(como(db, VEND, `select finalizar_venda('{}')`), /permission denied/);
     await assert.rejects(como(db, ADMIN, `select salvar_orcamento('{}')`), /permission denied/);
     await assert.rejects(como(db, VEND, `insert into orcamentos (data) values (current_date)`), /row-level security/);
+
+    // Etiquetas: todos leem os modelos; só o admin altera
+    await db.exec(`insert into etiqueta_modelos (id, descricao) values (2, 'M2'); insert into etiqueta_campos (modelo_id, fonte, linha, esquerda, texto) values (2, '1', 10, 10, '[PRECO]')`);
+    assert.equal((await como(db, VEND, 'select * from etiqueta_campos')).rows.length, 1);
+    assert.equal((await como(db, VEND, `update etiqueta_modelos set descricao = 'X' returning id`)).rows.length, 0);
+    assert.equal((await como(db, ADMIN, `update etiqueta_modelos set descricao = 'X' returning id`)).rows.length, 1);
+    await assert.rejects(como(db, FIN, `insert into etiqueta_modelos (descricao) values ('Y')`), /row-level security/);
   } finally {
     await db.close();
   }

@@ -42,7 +42,7 @@ export async function executarMigracao({ fb, db, modo = 'completo', dias = 15, s
 
     if (spec.tabela === 'usuarios_legado') for (const u of linhas) ctx.usuarios.set(u.id, u.nome || u.login);
 
-    const gravadas = db ? await upsert(db, spec.tabela, linhas, { conflito: spec.conflito, set: spec.set }) : linhas.length;
+    const gravadas = db ? await upsert(db, spec.tabela, linhas, { conflito: spec.conflito, set: spec.set, apenasNovos: spec.apenasNovos }) : linhas.length;
     if (CONJUNTOS_DE_IDS.includes(spec.tabela)) {
       if (db) ctx.ids[spec.tabela] = await idsExistentes(db, spec.tabela);
       else for (const l of linhas) ctx.ids[spec.tabela].add(Number(l.id));
