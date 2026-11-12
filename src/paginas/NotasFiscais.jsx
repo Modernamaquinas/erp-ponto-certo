@@ -421,9 +421,9 @@ function ConfigImpressora() {
       </Campo>
       <Campo rotulo="Largura do papel do cupom">
         <select value={c.largura} onChange={set('largura')}>
-          <option value="80">80 mm (Epson TM-T20, TM-T88…)</option>
+          <option value="80">80 mm (Epson TM-T20II — impressora da loja)</option>
           <option value="58">58 mm</option>
-          <option value="A4">Folha A4 (jato de tinta, ex.: Epson L42xx)</option>
+          <option value="A4">Folha A4 (impressora comum)</option>
         </select>
       </Campo>
       <Campo rotulo="Vias do cupom">
@@ -433,6 +433,9 @@ function ConfigImpressora() {
       <div className="campo-largo">
         <h3>Como deixar a Epson imprimindo direto</h3>
         <ol className="texto-ajuda">
+          <li><strong>Pré-configuração automática:</strong> em Etiquetas → Configurar, baixe e rode o <code>instalar.cmd</code> (como administrador).
+            Ele compartilha a Elgin L42 Pro Full como <code>L42</code>, deixa a <strong>Epson TM-T20II</strong> como padrão do Windows e cria
+            na área de trabalho o atalho <strong>"ERP Ponto Certo - Caixa"</strong>, que imprime o cupom direto. Os passos abaixo são o mesmo, à mão.</li>
           <li>Instale o driver da Epson (Epson Advanced Printer Driver) e deixe a impressora como <strong>padrão do Windows</strong>.
             Em Preferências de impressão, escolha o papel <strong>80 x 297 mm</strong> (ou "Roll Paper 80mm").</li>
           <li>O cupom da NFC-e (DANFCE) sai na térmica. O DANFE da NF-e é folha A4: imprima numa impressora comum, escolhida na janela de impressão.</li>

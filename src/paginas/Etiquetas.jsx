@@ -169,10 +169,12 @@ function Configurar({ cfg, agente, aoFechar, aoSalvar }) {
         <Campo rotulo="Endereço do agente"><input value={c.agente} onChange={(e) => setC({ ...c, agente: e.target.value })} /></Campo>
       </div>
       <p>Situação: {agente?.ok ? <Etiqueta tipo="ok">agente rodando em {agente.computador}</Etiqueta> : <Etiqueta tipo="erro">agente não encontrado</Etiqueta>}</p>
+      <p className="texto-fraco">Padrão da loja: rolo de <strong>3 colunas de 33 × 22 mm com 2 mm entre etiquetas</strong> (linhas e colunas), modelo "3,3 CM X 2,2 CM (3 COL.) C/ DESCRIÇÃO", na Elgin L42 Pro Full em PPLA.</p>
       <h3>Instalar o agente (uma vez por computador)</h3>
       <ol className="lista-passos">
-        <li>Baixe os dois arquivos para a mesma pasta: <a href="/agente/agente-impressao.ps1" download>agente-impressao.ps1</a> e <a href="/agente/instalar.cmd" download>instalar.cmd</a>.</li>
-        <li>Dê dois cliques em <strong>instalar.cmd</strong> (se o Windows avisar, clique em "Mais informações" → "Executar assim mesmo"). Ele passa a abrir sozinho com o Windows, sem janela.</li>
+        <li>Baixe os três arquivos para a mesma pasta: <a href="/agente/agente-impressao.ps1" download>agente-impressao.ps1</a>, <a href="/agente/configurar-impressoras.ps1" download>configurar-impressoras.ps1</a> e <a href="/agente/instalar.cmd" download>instalar.cmd</a>.</li>
+        <li>Clique com o botão direito em <strong>instalar.cmd</strong> → <strong>Executar como administrador</strong> (se o Windows avisar, "Mais informações" → "Executar assim mesmo"). O agente passa a abrir sozinho com o Windows, sem janela, e as impressoras da loja ficam pré-configuradas:
+          <strong> Elgin L42 Pro Full</strong> compartilhada como <code>L42</code> (etiquetas) e <strong>Epson TM-T20II</strong> como padrão do Windows (cupom), com o atalho "ERP Ponto Certo - Caixa" na área de trabalho.</li>
         <li>Se a L42 estiver em outro computador, compartilhe a impressora lá e informe acima <code>\\NOME-DO-PC\L42</code>.</li>
         <li>Na primeira impressão o Chrome pode pedir permissão para acessar a rede local: clique em <strong>Permitir</strong>.</li>
       </ol>

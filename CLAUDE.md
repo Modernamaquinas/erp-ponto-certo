@@ -44,4 +44,9 @@ ERP web da Ponto Certo Ferragens (pt-BR), substituindo o DirectControl/Acertsoft
 - Impressão de etiquetas (`/etiquetas`, também `?produto=id` e `?compra=id`): o navegador manda o PPLA ao agente local
   `public/agente/agente-impressao.ps1` (PowerShell, TcpListener em 127.0.0.1:7172, aceita só a origem do ERP), que faz
   `copy /b` para `\127.0.0.1\L42` como o PRINTLBL.BAT. Instalação no PC: `instalar.cmd` (atalho na Inicializar). O .ps1 precisa
-  de BOM UTF-8 (PowerShell 5.1 lê sem BOM como ANSI). Impressora de cupom da loja: Epson TM-T20.
+  de BOM UTF-8 (PowerShell 5.1 lê sem BOM como ANSI).
+- Impressoras da loja (pré-configuradas): etiquetas na **Elgin L42 Pro Full** (PPLA, compartilhada como `L42`), rolo de
+  3 colunas de 33 x 22 mm com 2 mm entre etiquetas = modelo padrão 2 "3,3 CM X 2,2 CM (3 COL.) C/ DESCRIÇÃO" (colunas a
+  138 = 35 mm uma da outra, em 0,01"). Cupom/NFC-e na **Epson TM-T20II** (80 mm, padrão do Windows). O `instalar.cmd`
+  chama `public/agente/configurar-impressoras.ps1` (compartilha a L42, define a TM-T20II como padrão, cria o atalho do
+  Chrome com `--kiosk-printing` em `/pdv`); precisa de administrador para compartilhar/trocar a padrão. Com BOM UTF-8.
