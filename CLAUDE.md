@@ -67,3 +67,11 @@ ERP web da Ponto Certo Ferragens (pt-BR), substituindo o DirectControl/Acertsoft
   `src/componentes/graficos.jsx`. Contagem: lista por critério com foto do estoque; contagem cega para vendedor; fechar com ajuste
   aplica `contado − foto` (não perde vendas no meio). **A sincronização do DirectControl sobrescreve `produtos.estoque`**: até a troca
   de sistema, o acerto também precisa ser lançado lá.
+- Orçamento com tipo (018/019): `orcamento` (não mexe no estoque; botão "Gerar venda" salva e abre no PDV), `reserva` (status
+  `reservado`: o estoque sai do disponível) e `consignado` (status `consignado`: o cliente cadastrado leva; fica na ficha dele).
+  O PDV abre os dois com `/pdv?orcamento=id` em modo acerto: só os itens separados, até a quantidade separada; `finalizar_venda`
+  não baixa o estoque de novo e devolve a diferença (`orcamento_itens.quantidade_devolvida`). `consignado_devolver` = devolveu tudo
+  / liberar reserva. Sem nota de remessa em consignação (CFOP 5917): a nota sai só na venda do acerto.
+- Crediário: 1ª parcela sempre no dia 10 do mês seguinte (`vencimento_crediario`, aplicado no banco; o navegador só mostra).
+- Entrega na finalização (018): `vendas.entrega`, `entrega_nome/telefone/data/horario` + `endereco_entrega`. Sem cadastro, nome e
+  telefone são obrigatórios; o frete continua exigindo cliente cadastrado (SEFAZ 787/788). O comprovante sai com o quadro de entrega.

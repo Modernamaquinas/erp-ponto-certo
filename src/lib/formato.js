@@ -63,3 +63,9 @@ export function linkWhatsApp(celular, texto) {
   if (!d.startsWith('55')) d = `55${d}`;
   return `https://wa.me/${d}?text=${encodeURIComponent(texto)}`;
 }
+
+/** Crediário da loja: 1ª parcela no dia 10 do mês seguinte à compra (igual a vencimento_crediario no banco). */
+export function vencimentoCrediario(iso) {
+  const [a, m] = iso.split('-').map(Number);
+  return new Date(Date.UTC(a, m, 10)).toISOString().slice(0, 10);
+}

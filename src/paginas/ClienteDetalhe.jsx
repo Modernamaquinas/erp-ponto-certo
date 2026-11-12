@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { supabase, ou } from '../lib/supabase.js';
 import { moeda, data, documento, telefone } from '../lib/formato.js';
-import { usePerfil, podeFinanceiro } from '../lib/contexto.js';
+import { usePerfil, podeFinanceiro, navegar } from '../lib/contexto.js';
+import { STATUS_ORC } from './Orcamentos.jsx';
 import { Pagina, Campo, Tabela, Detalhes, Aviso, Etiqueta, useConsulta, useAvisar } from '../componentes/ui.jsx';
 import { situacaoTitulo } from './Receber.jsx';
 import EditarCadastro, { validarDoc, validarCep } from '../componentes/EditarCadastro.jsx';
@@ -15,6 +16,9 @@ export default function ClienteDetalhe({ id }) {
   const cli = useConsulta(async () => ({ dados: ou(await supabase.from('clientes').select('*, cidades(nome, uf)').eq('id', id).single()).data }), [id]);
   const vendas = useConsulta(async () => ({ dados: ou(await supabase.from('vendas').select('id, data, total, situacao')
     .eq('cliente_id', id).eq('situacao', 'finalizada').order('data', { ascending: false }).limit(15)).data }), [id]);
+  // consignados e reservas do cliente (os em aberto primeiro)
+  const consig = useConsulta(async () => ({ dados: ou(await supabase.from('orcamentos').select('id, data, tipo, status, total, validade, venda_id')
+    .eq('cliente_id', id).in('tipo', ['consignado', 'reserva']).order('data', { ascending: false }).limit(30)).data }), [id]);
   const titulos = useConsulta(async () => (fin ? { dados: ou(await supabase.from('contas_receber').select('*')
     .eq('cliente_id', id).eq('status', 'aberto').order('vencimento')).data } : { dados: [] }), [id, fin]);
 
@@ -130,6 +134,25 @@ export default function ClienteDetalhe({ id }) {
               { titulo: 'Saldo', alinhar: 'dir', render: (t) => moeda(t.saldo) },
               { titulo: 'Situação', render: (t) => <span className="etiquetas">{situacaoTitulo(t)}{t.cobranca_id && <Etiqueta tipo="marca">Asaas</Etiqueta>}</span> },
             ]} />
+        </section>
+      )}
+
+      {consig.dados?.length > 0 && (
+        <section className="painel-caixa">
+          <div className="grafico-topo">
+            <h2>Consignados e reservas{(() => { const ab = consig.dados.filter((o) => ['consignado', 'reservado'].includes(o.status)); return ab.length ? `: ${ab.length} em aberto (${moeda(ab.reduce((s, o) => s + Number(o.total), 0))})` : ''; })()}</h2>
+          </div>
+          <Tabela linhas={[...consig.dados].sort((a, b) => Number(['consignado', 'reservado'].includes(b.status)) - Number(['consignado', 'reservado'].includes(a.status)))}
+            aoClicar={(o) => navegar(['consignado', 'reservado'].includes(o.status) ? `/pdv?orcamento=${o.id}` : `/orcamentos`)}
+            colunas={[
+              { titulo: 'Nº', campo: 'id', classe: 'cod' },
+              { titulo: 'Tipo', render: (o) => (o.tipo === 'consignado' ? 'Consignado' : 'Reserva') },
+              { titulo: 'Data', render: (o) => data(o.data) },
+              { titulo: 'Acerto até', render: (o) => (o.validade ? <span className={['consignado', 'reservado'].includes(o.status) && o.validade < new Date().toISOString().slice(0, 10) ? 'texto-erro' : ''}>{data(o.validade)}</span> : '') },
+              { titulo: 'Total', alinhar: 'dir', render: (o) => moeda(o.total) },
+              { titulo: 'Situação', render: (o) => <Etiqueta tipo={STATUS_ORC[o.status]?.[0]}>{STATUS_ORC[o.status]?.[1]}{o.venda_id ? ` · venda ${o.venda_id}` : ''}</Etiqueta> },
+            ]} />
+          <p className="texto-fraco">Clique num consignado em aberto para fazer o acerto no PDV.</p>
         </section>
       )}
 

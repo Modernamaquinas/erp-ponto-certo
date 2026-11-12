@@ -38,7 +38,7 @@ export function ratearDesconto(itens, descontoGeral) {
  * caixa escolheu, NF-e (DANFE A4, exige cliente com CPF/CNPJ e endereço). Frete e endereço de entrega vão na nota.
  */
 export async function emitirNotaDaVenda(sb, usuario, vendaId, { cpf, cartoes = [], modelo } = {}) {
-  const v = ou(await sb.from('vendas').select('id, cliente_id, cpf_nota, desconto, total, origem, numero_nfce, numero_nfe, valor_frete, endereco_entrega, documento_fiscal')
+  const v = ou(await sb.from('vendas').select('id, cliente_id, cpf_nota, desconto, total, origem, numero_nfce, numero_nfe, valor_frete, endereco_entrega, documento_fiscal, entrega, entrega_data, entrega_horario')
     .eq('id', vendaId).single()).data;
   const mod = Number(modelo) || (v.documento_fiscal === 'nfe' ? 55 : 65);
   const frete = Number(v.valor_frete) || 0;
@@ -70,7 +70,7 @@ export async function emitirNotaDaVenda(sb, usuario, vendaId, { cpf, cartoes = [
     modelo: mod, venda_id: v.id, ...(comCliente ? { cliente_id: v.cliente_id } : { cpf: docNota, nome_consumidor: nomeNota }),
     itens: rateados.map((i) => ({ produto_id: i.produto_id, quantidade: Number(i.quantidade), valor_unitario: Number(i.preco_unitario), desconto: i.desconto })),
     pagamentos, frete,
-    inf_complementar: v.endereco_entrega ? `ENTREGA: ${String(v.endereco_entrega).replace(/s+/g, ' ').slice(0, 300)}` : undefined,
+    inf_complementar: textoEntrega(v),
   });
   if (nota.status === 'autorizada') await sb.from('vendas').update(mod === 55 ? { numero_nfe: nota.numero } : { numero_nfce: nota.numero }).eq('id', v.id);
   return nota;
@@ -78,3 +78,10 @@ export async function emitirNotaDaVenda(sb, usuario, vendaId, { cpf, cartoes = [
 
 /** Compatibilidade: NFC-e da venda. */
 export const emitirNfceDaVenda = (sb, usuario, vendaId, opcoes = {}) => emitirNotaDaVenda(sb, usuario, vendaId, { ...opcoes, modelo: 65 });
+
+/** Observação da nota com o endereço (e data/horário) da entrega. */
+export function textoEntrega(v) {
+  if (!v.endereco_entrega) return undefined;
+  const quando = v.entrega && v.entrega_data ? ` EM ${v.entrega_data.split('-').reverse().join('/')}${v.entrega_horario ? ` ${v.entrega_horario}` : ''}` : '';
+  return `ENTREGA${quando}: ${String(v.endereco_entrega).replace(/\s+/g, ' ').trim()}`.slice(0, 400);
+}

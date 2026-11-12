@@ -6,6 +6,8 @@
 // finalizar aceita ainda: frete?, endereco_entrega?, documento_fiscal? ('nfce' | 'nfe' = DANFE A4, exige cliente)
 //   orcamento_salvar    { codigo, id?, itens, ... }      -> { id }
 //   orcamento_cancelar  { codigo, id }
+//   consignado_devolver { codigo, id }                   consignado devolvido por inteiro / reserva liberada (estoque volta)
+// finalizar aceita entrega? { nome, telefone, data, horario } (com endereco_entrega)
 import { supabaseServico, exigirUsuario, rota, ErroHttp } from './_lib/supabase.js';
 import { emitirNotaDaVenda } from './_lib/pdv.js';
 
@@ -40,7 +42,8 @@ export default rota(async (req, res) => {
       const p = { operador_codigo: String(c.codigo), cliente_id: c.cliente_id || null, cliente_nome: c.cliente_nome || null, cpf: c.cpf || null,
         observacao: c.observacao || null, num_caixa: c.num_caixa || null, orcamento_id: c.orcamento_id || null,
         desconto_geral: c.desconto_geral || 0, itens: c.itens || [], pagamentos: c.pagamentos || [],
-        frete: Number(c.frete) || 0, endereco_entrega: c.endereco_entrega || null, documento_fiscal: c.documento_fiscal === 'nfe' ? 'nfe' : 'nfce' };
+        frete: Number(c.frete) || 0, endereco_entrega: c.endereco_entrega || null, documento_fiscal: c.documento_fiscal === 'nfe' ? 'nfe' : 'nfce',
+        entrega: c.entrega && typeof c.entrega === 'object' ? { nome: c.entrega.nome || null, telefone: c.entrega.telefone || null, data: c.entrega.data || null, horario: c.entrega.horario || null } : null };
       const { data: vendaId, error } = await sb.rpc('finalizar_venda', { p });
       if (error) throw erroBanco(error);
       const venda = (await sb.from('vendas').select('id, total').eq('id', vendaId).single()).data;
@@ -63,7 +66,7 @@ export default rota(async (req, res) => {
     case 'orcamento_salvar': {
       await operador(sb, c.codigo);
       const p = { id: c.id || null, operador_codigo: String(c.codigo), cliente_id: c.cliente_id || null, cliente_nome: c.cliente_nome || null,
-        validade: c.validade || null, observacao: c.observacao || null, tipo: c.tipo === 'prevenda' ? 'prevenda' : 'orcamento', desconto_geral: c.desconto_geral || 0, itens: c.itens || [] };
+        validade: c.validade || null, observacao: c.observacao || null, tipo: ['prevenda', 'consignado', 'reserva'].includes(c.tipo) ? c.tipo : 'orcamento', desconto_geral: c.desconto_geral || 0, itens: c.itens || [] };
       const { data, error } = await sb.rpc('salvar_orcamento', { p });
       if (error) throw erroBanco(error);
       return res.json({ id: data });
@@ -73,6 +76,13 @@ export default rota(async (req, res) => {
       await operador(sb, c.codigo);
       const { data } = await sb.from('orcamentos').update({ status: 'cancelado' }).eq('id', Number(c.id)).eq('status', 'aberto').select('id');
       if (!data?.length) throw new ErroHttp(400, 'Orçamento não está aberto');
+      return res.json({ ok: true });
+    }
+
+    case 'consignado_devolver': {
+      await operador(sb, c.codigo);
+      const { error } = await sb.rpc('consignado_devolver', { p: { operador_codigo: String(c.codigo), id: Number(c.id) } });
+      if (error) throw erroBanco(error);
       return res.json({ ok: true });
     }
 
