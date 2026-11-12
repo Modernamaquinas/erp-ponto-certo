@@ -174,7 +174,7 @@ function Configurar({ cfg, agente, aoFechar, aoSalvar }) {
       <ol className="lista-passos">
         <li>Baixe os três arquivos para a mesma pasta: <a href="/agente/agente-impressao.ps1" download>agente-impressao.ps1</a>, <a href="/agente/configurar-impressoras.ps1" download>configurar-impressoras.ps1</a> e <a href="/agente/instalar.cmd" download>instalar.cmd</a>.</li>
         <li>Clique com o botão direito em <strong>instalar.cmd</strong> → <strong>Executar como administrador</strong> (se o Windows avisar, "Mais informações" → "Executar assim mesmo"). O agente passa a abrir sozinho com o Windows, sem janela, e as impressoras da loja ficam pré-configuradas:
-          <strong> Elgin L42 Pro Full</strong> compartilhada como <code>L42</code> (etiquetas) e <strong>Epson TM-T20II</strong> como padrão do Windows (cupom), com o atalho "ERP Ponto Certo - Caixa" na área de trabalho.</li>
+          <strong> Elgin L42 Pro Full</strong> compartilhada como <code>L42</code> (etiquetas) e <strong>Epson TM-T20II</strong> como padrão do Windows (cupom), <strong>HP Laser 107w</strong> para o DANFE da NF-e (A4), com o atalho "ERP Ponto Certo - Caixa" na área de trabalho.</li>
         <li>Se a L42 estiver em outro computador, compartilhe a impressora lá e informe acima <code>\\NOME-DO-PC\L42</code>.</li>
         <li>Na primeira impressão o Chrome pode pedir permissão para acessar a rede local: clique em <strong>Permitir</strong>.</li>
       </ol>

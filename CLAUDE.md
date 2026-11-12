@@ -50,3 +50,6 @@ ERP web da Ponto Certo Ferragens (pt-BR), substituindo o DirectControl/Acertsoft
   138 = 35 mm uma da outra, em 0,01"). Cupom/NFC-e na **Epson TM-T20II** (80 mm, padrão do Windows). O `instalar.cmd`
   chama `public/agente/configurar-impressoras.ps1` (compartilha a L42, define a TM-T20II como padrão, cria o atalho do
   Chrome com `--kiosk-printing` em `/pdv`); precisa de administrador para compartilhar/trocar a padrão. Com BOM UTF-8.
+  Folha A4 (DANFE da NF-e, PDF): **HP Laser 107w**. O configurador grava o nome dela em `impressora-a4.txt` e baixa o
+  SumatraPDF portátil para a pasta do agente; `POST /imprimir-pdf` do agente imprime com `-print-to`. `imprimirNota` usa
+  `imprimirPdfNoAgente` e só cai na janela do navegador se o agente não tiver impressora A4 (no atalho kiosk iria para a térmica).

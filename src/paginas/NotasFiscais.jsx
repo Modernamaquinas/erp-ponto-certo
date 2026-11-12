@@ -434,11 +434,13 @@ function ConfigImpressora() {
         <h3>Como deixar a Epson imprimindo direto</h3>
         <ol className="texto-ajuda">
           <li><strong>Pré-configuração automática:</strong> em Etiquetas → Configurar, baixe e rode o <code>instalar.cmd</code> (como administrador).
-            Ele compartilha a Elgin L42 Pro Full como <code>L42</code>, deixa a <strong>Epson TM-T20II</strong> como padrão do Windows e cria
+            Ele compartilha a Elgin L42 Pro Full como <code>L42</code>, deixa a <strong>Epson TM-T20II</strong> como padrão do Windows, prepara a
+            <strong>HP Laser 107w</strong> para o DANFE A4 e cria
             na área de trabalho o atalho <strong>"ERP Ponto Certo - Caixa"</strong>, que imprime o cupom direto. Os passos abaixo são o mesmo, à mão.</li>
           <li>Instale o driver da Epson (Epson Advanced Printer Driver) e deixe a impressora como <strong>padrão do Windows</strong>.
             Em Preferências de impressão, escolha o papel <strong>80 x 297 mm</strong> (ou "Roll Paper 80mm").</li>
-          <li>O cupom da NFC-e (DANFCE) sai na térmica. O DANFE da NF-e é folha A4: imprima numa impressora comum, escolhida na janela de impressão.</li>
+          <li>O cupom da NFC-e (DANFCE) sai na térmica. O DANFE da NF-e é folha A4 e vai direto para a <strong>HP Laser 107w</strong> pelo agente de impressão
+            (instalado pelo <code>instalar.cmd</code>); sem o agente, ele abre a janela de impressão para você escolher a HP.</li>
           <li>Para imprimir <strong>sem a janela de impressão</strong>, crie um atalho do Chrome no caixa com o destino:<br />
             <code>"C:\Program Files\Google\Chrome\Application\chrome.exe" --kiosk-printing https://erp-ponto-certo.vercel.app</code><br />
             Abrindo o ERP por esse atalho, tudo vai direto para a impressora padrão.</li>

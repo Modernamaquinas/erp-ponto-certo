@@ -4,8 +4,10 @@
 #     etiquetas (modelo padrão do ERP: "3,3 CM X 2,2 CM (3 COL.) C/ DESCRIÇÃO").
 #   - Cupom (NFC-e / comprovantes): Epson TM-T20II, papel 80 mm. Fica como impressora padrão do Windows e
 #     o atalho "ERP Ponto Certo - Caixa" abre o Chrome com --kiosk-printing (imprime sem a janela de impressão).
+#   - Folha A4 (DANFE da NF-e): HP Laser 107w. Como o Chrome do caixa manda tudo para a padrão (TM-T20II), o
+#     DANFE vai pelo agente local: o SumatraPDF (baixado aqui, portátil) imprime o PDF direto na HP.
 # Compartilhar impressora e trocar a padrão pode exigir rodar como administrador.
-param([string]$Url = 'https://erp-ponto-certo.vercel.app')
+param([string]$Url = 'https://erp-ponto-certo.vercel.app', [string]$Pasta = (Join-Path $env:LOCALAPPDATA 'ERP Ponto Certo'))
 $ErrorActionPreference = 'Continue'
 $avisos = @()
 
@@ -40,6 +42,33 @@ if (-not $tm) {
     Write-Host "OK  Cupom: '$($tm.Name)' definida como impressora padrao do Windows (papel 80 mm)."
   } catch {
     $avisos += "Nao consegui deixar '$($tm.Name)' como padrao. Em Configuracoes > Impressoras, escolha a TM-T20II e clique em 'Definir como padrao'."
+  }
+}
+
+# --- HP Laser 107w (folha A4: DANFE da NF-e) ---
+New-Item -ItemType Directory -Force $Pasta | Out-Null
+$hps = Get-Printer -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'HP Laser 10[378]|107w' -or $_.DriverName -match 'HP Laser 10[378]' }
+# prefere a fila com o driver da HP (USB/rede) à fila genérica IPP do Windows
+$hp = ($hps | Where-Object { $_.DriverName -notmatch 'IPP' } | Select-Object -First 1); if (-not $hp) { $hp = $hps | Select-Object -First 1 }
+if (-not $hp) {
+  $avisos += 'HP Laser 107w nao encontrada. Instale o driver "HP Laser 103/107/108" (site da HP) e rode este instalador de novo.'
+} else {
+  [IO.File]::WriteAllText((Join-Path $Pasta 'impressora-a4.txt'), $hp.Name, (New-Object Text.UTF8Encoding $false))
+  Write-Host "OK  Folha A4 (DANFE da NF-e): '$($hp.Name)'."
+  $sumatra = Join-Path $Pasta 'SumatraPDF.exe'
+  if (-not (Test-Path $sumatra)) {
+    try {
+      $zip = Join-Path $env:TEMP 'SumatraPDF-3.5.2-64.zip'
+      [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+      Invoke-WebRequest -UseBasicParsing 'https://www.sumatrapdfreader.org/dl/rel/3.5.2/SumatraPDF-3.5.2-64.zip' -OutFile $zip
+      $tmp = Join-Path $env:TEMP 'SumatraPDF-erp'; Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+      Expand-Archive $zip -DestinationPath $tmp -Force
+      Copy-Item (Get-ChildItem $tmp -Filter 'SumatraPDF*.exe' | Select-Object -First 1).FullName $sumatra -Force
+      Remove-Item $zip, $tmp -Recurse -Force -ErrorAction SilentlyContinue
+      Write-Host 'OK  Leitor de PDF (SumatraPDF) instalado para imprimir o DANFE direto na HP.'
+    } catch {
+      $avisos += "Nao consegui baixar o SumatraPDF ($($_.Exception.Message)). Sem ele o DANFE abre a janela de impressao: escolha a HP Laser 107w."
+    }
   }
 }
 

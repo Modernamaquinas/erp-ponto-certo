@@ -4,6 +4,8 @@
 #
 #   GET  http://127.0.0.1:7172/status                 -> {"ok":true,"impressora":"\\127.0.0.1\L42",...}
 #   POST http://127.0.0.1:7172/imprimir?impressora=…  (corpo = bytes do arquivo) -> {"ok":true,"bytes":N}
+#   POST http://127.0.0.1:7172/imprimir-pdf           (corpo = PDF) -> imprime na impressora A4 (HP Laser 107w)
+#        com o SumatraPDF da mesma pasta; a impressora vem de impressora-a4.txt (gravado pelo configurar-impressoras.ps1)
 #
 # Só aceita pedidos vindos do próprio PC (127.0.0.1) e das origens do ERP listadas em $Origens.
 param(
@@ -30,6 +32,18 @@ function Responder($stream, [int]$codigo, [string]$corpo, [string]$origem) {
   if ($b.Length) { $stream.Write($b, 0, $b.Length) }
 }
 function Json($obj) { $obj | ConvertTo-Json -Compress }
+# Impressora A4 (DANFE da NF-e) e leitor de PDF, preparados pelo configurar-impressoras.ps1 nesta mesma pasta
+$arquivoA4 = Join-Path $PSScriptRoot 'impressora-a4.txt'
+$sumatra = Join-Path $PSScriptRoot 'SumatraPDF.exe'
+function ImpressoraA4 { if (Test-Path $arquivoA4) { (Get-Content $arquivoA4 -Raw -Encoding UTF8).Trim() } else { '' } }
+function LerCorpo($stream, $buf, $lido, $fim, [int]$tamanho) {
+  $corpo = New-Object byte[] $tamanho
+  $ja = $lido - ($fim + 4)
+  if ($ja -gt 0) { [Array]::Copy($buf, $fim + 4, $corpo, 0, [Math]::Min($ja, $tamanho)) }
+  while ($ja -lt $tamanho) { $n = $stream.Read($corpo, $ja, $tamanho - $ja); if ($n -le 0) { break }; $ja += $n }
+  if ($ja -lt $tamanho) { return $null }
+  return ,$corpo
+}
 
 function Atender($cliente) {
   $stream = $cliente.GetStream()
@@ -59,7 +73,22 @@ function Atender($cliente) {
 
   if ($metodo -eq 'OPTIONS') { Responder $stream 204 '' $eco; return }
   if ($metodo -eq 'GET' -and $caminho -eq '/status') {
-    Responder $stream 200 (Json @{ ok = $true; agente = 'erp-ponto-certo-impressao'; versao = 1; impressora = $Impressora; computador = $env:COMPUTERNAME }) $eco; return
+    Responder $stream 200 (Json @{ ok = $true; agente = 'erp-ponto-certo-impressao'; versao = 2; impressora = $Impressora; impressoraA4 = (ImpressoraA4); pdf = (Test-Path $sumatra); computador = $env:COMPUTERNAME }) $eco; return
+  }
+  if ($metodo -eq 'POST' -and $caminho -eq '/imprimir-pdf') {
+    $a4 = ImpressoraA4
+    if (-not $a4 -or -not (Test-Path $sumatra)) { Responder $stream 400 (Json @{ ok = $false; erro = 'Impressora A4 não configurada neste computador: rode o instalar.cmd de novo.' }) $eco; return }
+    $tamanho = [int]($cab['content-length'])
+    if ($tamanho -le 0 -or $tamanho -gt 20MB) { Responder $stream 400 (Json @{ ok = $false; erro = 'PDF vazio ou grande demais' }) $eco; return }
+    $corpo = LerCorpo $stream $buf $lido $fim $tamanho
+    if (-not $corpo) { Responder $stream 400 (Json @{ ok = $false; erro = 'arquivo incompleto' }) $eco; return }
+    $pdf = Join-Path $pasta ('documento-{0:yyyyMMddHHmmss}.pdf' -f (Get-Date))
+    [IO.File]::WriteAllBytes($pdf, $corpo)
+    $p = Start-Process -FilePath $sumatra -ArgumentList @('-print-to', "`"$a4`"", '-print-settings', '"fit,paper=A4"', '-silent', '-exit-on-print', "`"$pdf`"") -PassThru -WindowStyle Hidden
+    if (-not $p.WaitForExit(60000)) { try { $p.Kill() } catch {} ; Responder $stream 500 (Json @{ ok = $false; erro = "A impressora $a4 não respondeu." }) $eco; return }
+    Get-ChildItem $pasta -Filter 'documento-*.pdf' | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-1) } | Remove-Item -ErrorAction SilentlyContinue
+    Registrar "PDF impresso: $tamanho bytes em $a4"
+    Responder $stream 200 (Json @{ ok = $true; bytes = $tamanho; impressora = $a4 }) $eco; return
   }
   if ($metodo -eq 'POST' -and $caminho -eq '/imprimir') {
     $tamanho = [int]($cab['content-length'])

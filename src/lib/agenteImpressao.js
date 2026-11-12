@@ -38,6 +38,24 @@ export async function imprimirNoAgente(texto, cfg = lerCfgEtiquetas()) {
   return j;
 }
 
+/**
+ * PDF (DANFE da NF-e, folha A4) direto na impressora A4 do computador (HP Laser 107w), pelo agente local.
+ * Devolve false quando o agente não está instalado ou não tem impressora A4: aí quem chamou usa a janela do navegador.
+ */
+export async function imprimirPdfNoAgente(bytes, cfg = lerCfgEtiquetas()) {
+  const st = await statusAgente(cfg);
+  if (!st.ok || !st.impressoraA4 || !st.pdf) return false;
+  let r;
+  try {
+    r = await fetch(`${base(cfg)}/imprimir-pdf`, { method: 'POST', headers: { 'Content-Type': 'application/pdf' }, body: bytes, signal: AbortSignal.timeout(90000) });
+  } catch {
+    throw new Error(`Não consegui falar com o agente de impressão para mandar o DANFE à ${st.impressoraA4}.`);
+  }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.ok) throw new Error(j.erro || `Falha ao imprimir o DANFE (${r.status})`);
+  return true;
+}
+
 export function baixarArquivo(texto, nome = 'ETIQUETA.TXT') {
   const blob = new Blob([Uint8Array.from(texto, (c) => c.charCodeAt(0) & 0xff)], { type: 'application/octet-stream' });
   const a = document.createElement('a');

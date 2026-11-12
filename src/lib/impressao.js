@@ -3,6 +3,7 @@
 // O navegador não escolhe a impressora sozinho: ele usa a padrão do Windows. Para imprimir direto na Epson
 // sem a janela de impressão, o Chrome do caixa deve abrir com --kiosk-printing (ver tela Impressora).
 import { api } from './supabase.js';
+import { imprimirPdfNoAgente } from './agenteImpressao.js';
 
 const CHAVE = 'pc-impressora';
 export const PADRAO = { aposEmitir: 'perguntar', largura: '80', vias: 1, nfe: 'perguntar' };
@@ -67,6 +68,9 @@ export async function imprimirNota(notaId) {
     html = html.includes('</head>') ? html.replace('</head>', `${estiloCupom(cfg.largura)}</head>`) : estiloCupom(cfg.largura) + html;
     return imprimirEmQuadro({ html }, vias);
   }
+  // DANFE da NF-e (A4): vai para a HP Laser 107w pelo agente local. Sem agente, abre a impressão do navegador
+  // (no atalho do caixa com --kiosk-printing isso cairia na térmica, por isso o agente é o caminho padrão).
+  if (await imprimirPdfNoAgente(bytes)) return;
   const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
   try { await imprimirEmQuadro({ url }, 1); } finally { setTimeout(() => URL.revokeObjectURL(url), 60000); }
 }
