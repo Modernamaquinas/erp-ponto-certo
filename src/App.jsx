@@ -17,6 +17,7 @@ import NotasFiscais from './paginas/NotasFiscais.jsx';
 import PDV from './paginas/PDV.jsx';
 import Orcamentos from './paginas/Orcamentos.jsx';
 import PreVenda from './paginas/PreVenda.jsx';
+import Etiquetas from './paginas/Etiquetas.jsx';
 import Vendas from './paginas/Vendas.jsx';
 import Compras from './paginas/Compras.jsx';
 import Usuarios from './paginas/Usuarios.jsx';
@@ -34,6 +35,7 @@ const MENU = [
     { rota: '/clientes', rotulo: 'Clientes', icone: '☺' },
     { rota: '/produtos', rotulo: 'Produtos e Preços', icone: '▦' },
     { rota: '/fornecedores', rotulo: 'Fornecedores', icone: '⛟' },
+    { rota: '/etiquetas', rotulo: 'Etiquetas', icone: '▥' },
   ] },
   { grupo: 'Movimento', itens: [
     { rota: '/pdv', rotulo: 'Nova venda (PDV)', icone: '⊕' },
@@ -64,6 +66,7 @@ function Conteudo({ rota, perfil }) {
     case '/orcamento': return <PDV params={params} modo="orcamento" />;
     case '/orcamentos': return <Orcamentos />;
     case '/prevenda': return <PreVenda />;
+    case '/etiquetas': return <Etiquetas key={`${params.produto}-${params.compra}`} params={params} />;
     case '/operadores': return perfil.papel === 'admin' ? <Usuarios /> : semAcesso;
     case '/receber': return fin ? <Receber params={params} /> : semAcesso;
     case '/cobrancas': return fin ? <Cobrancas params={params} /> : semAcesso;

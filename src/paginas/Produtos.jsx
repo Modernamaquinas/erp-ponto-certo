@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { supabase, ou } from '../lib/supabase.js';
 import { moeda, numero, data, filtrarBusca } from '../lib/formato.js';
-import { usePerfil, podeFinanceiro } from '../lib/contexto.js';
+import { usePerfil, podeFinanceiro, navegar } from '../lib/contexto.js';
 import { Pagina, Filtros, Campo, Tabela, Paginacao, Modal, Detalhes, Etiqueta, useConsulta, useAtrasado } from '../componentes/ui.jsx';
 import EditarCadastro from '../componentes/EditarCadastro.jsx';
 
@@ -84,7 +84,10 @@ function DetalheProduto({ id, verCusto, aoFechar, aoAlterar }) {
 
   return (
     <Modal aberto largo titulo={p ? p.nome : 'Produto'} aoFechar={aoFechar}
-      rodape={verCusto && p && <button type="button" className="btn btn-pri" onClick={() => setEditando(true)}>Editar produto</button>}>
+      rodape={p && <>
+        <button type="button" className="btn btn-sec" onClick={() => navegar(`/etiquetas?produto=${p.id}`)}>Etiquetas</button>
+        {verCusto && <button type="button" className="btn btn-pri" onClick={() => setEditando(true)}>Editar produto</button>}
+      </>}>
       {editando && p && <EditarProduto p={p} aoFechar={() => setEditando(false)} aoSalvar={() => { setEditando(false); aoAlterar(); }} />}
       {!p ? <p>Carregando…</p> : <>
         <Detalhes itens={[

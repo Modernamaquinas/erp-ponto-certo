@@ -41,3 +41,7 @@ ERP web da Ponto Certo Ferragens (pt-BR), substituindo o DirectControl/Acertsoft
   botão "Pré-vendas" do PDV (`/pdv?orcamento=id`); a venda, o estoque e a NFC-e só acontecem lá. A câmera exige https.
 - Etiquetas: modelos do DirectControl em `etiqueta_modelos/campos` (012/013); `src/lib/etiquetas.js` gera PPLA idêntico ao
   `C:\EASYCONTROL\ETIQUETA.TXT` (teste de referência). A sincronização só acrescenta modelos novos (`apenasNovos`).
+- Impressão de etiquetas (`/etiquetas`, também `?produto=id` e `?compra=id`): o navegador manda o PPLA ao agente local
+  `public/agente/agente-impressao.ps1` (PowerShell, TcpListener em 127.0.0.1:7172, aceita só a origem do ERP), que faz
+  `copy /b` para `\127.0.0.1\L42` como o PRINTLBL.BAT. Instalação no PC: `instalar.cmd` (atalho na Inicializar). O .ps1 precisa
+  de BOM UTF-8 (PowerShell 5.1 lê sem BOM como ANSI). Impressora de cupom da loja: Epson TM-T20.

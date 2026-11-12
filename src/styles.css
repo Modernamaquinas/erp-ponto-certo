@@ -329,3 +329,18 @@ button.cartao:hover { border-color: var(--marca); }
 .pv-abertas { list-style: none; margin: 0; padding: 0; }
 .pv-abertas li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--borda); }
 .pv-abertas li > div { min-width: 0; overflow-wrap: anywhere; }
+
+/* ---- etiquetas (2026-11-12) */
+.etq { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; margin-top: 8px; }
+.etq-principal { min-width: 0; }
+.etq-lateral { display: flex; flex-direction: column; gap: 10px; background: var(--superficie); border: 1px solid var(--borda); border-radius: 10px; padding: 14px; align-self: start; position: sticky; top: 12px; }
+.etq-lateral h3 { margin: 0; font-size: 15px; }
+.etq-previa { width: 100%; height: auto; background: var(--fundo); border-radius: 6px; }
+.etq-papel { fill: #fff; stroke: #c9c9c4; stroke-width: 1; }
+.etq-tinta { fill: #111; }
+.etq-texto { fill: #111; font-family: "Courier New", monospace; }
+.agente-status { font-size: 13px; padding: 4px 10px; border-radius: 999px; }
+.agente-status.ok { background: var(--ok-fundo); color: var(--ok); }
+.agente-status.erro { background: var(--erro-fundo); color: var(--erro); }
+.lista-passos { padding-left: 20px; line-height: 1.6; }
+@media (max-width: 900px) { .etq { grid-template-columns: 1fr; } .etq-lateral { position: static; } }

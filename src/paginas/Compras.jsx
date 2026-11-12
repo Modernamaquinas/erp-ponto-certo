@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase, ou } from '../lib/supabase.js';
 import { moeda, numero, data, normalizaBusca } from '../lib/formato.js';
+import { navegar } from '../lib/contexto.js';
 import { Pagina, Filtros, Campo, Tabela, Paginacao, Modal, Detalhes, useConsulta, useAtrasado } from '../componentes/ui.jsx';
 
 const POR_PAGINA = 50;
@@ -52,7 +53,8 @@ export default function Compras() {
 function DetalheCompra({ c, aoFechar }) {
   const itens = useConsulta(async () => ({ dados: ou(await supabase.from('compra_itens').select('*').eq('compra_id', c.id).order('item')).data }), [c.id]);
   return (
-    <Modal aberto largo titulo={`NF ${c.numero_nota || c.id} — ${c.fornecedores?.nome || ''}`} aoFechar={aoFechar}>
+    <Modal aberto largo titulo={`NF ${c.numero_nota || c.id} — ${c.fornecedores?.nome || ''}`} aoFechar={aoFechar}
+      rodape={<button type="button" className="btn btn-pri" onClick={() => navegar(`/etiquetas?compra=${c.id}`)}>Imprimir etiquetas</button>}>
       <Detalhes itens={[
         ['Emissão', data(c.data_emissao)], ['Entrada', data(c.data_entrada)], ['Chave NF-e', c.chave_nfe],
         ['Produtos', moeda(c.valor_produtos)], ['Frete', Number(c.valor_frete) ? moeda(c.valor_frete) : null],
