@@ -201,6 +201,7 @@ export default function EntradaNota() {
         duplicatas: dups.map((d) => ({ numero: d.numero, vencimento: d.vencimento, valor: num(d.valor) })), gerar_pagar: cab.gerar_pagar && dups.length > 0, itens };
       const id = ou(await supabase.rpc('lancar_compra', { p }));
       setFeito({ id, novos: linhas.filter((l) => l.novo).length });
+      api('marketplaces', { corpo: { acao: 'ml_sincronizar' } }).catch(() => {}); // estoque subiu: atualiza os anúncios
     } catch (e) { avisar(e.message, 'erro'); }
     setLancando(false);
   }

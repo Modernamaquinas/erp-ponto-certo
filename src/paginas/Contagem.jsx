@@ -3,7 +3,7 @@
 //  - qualquer usuário conta (celular com câmera, leitor ou digitando). A contagem é "cega": quem conta não vê o estoque do sistema;
 //  - ao fechar com ajuste, o estoque recebe a diferença (contado − foto da criação), sem perder as vendas feitas no meio.
 import { useMemo, useRef, useState } from 'react';
-import { supabase, ou } from '../lib/supabase.js';
+import { supabase, api, ou } from '../lib/supabase.js';
 import { moeda, numero, dataHora, hoje } from '../lib/formato.js';
 import { navegar, usePerfil, podeFinanceiro } from '../lib/contexto.js';
 import { Pagina, Campo, Tabela, Modal, Aviso, Etiqueta, useAvisar, useConsulta } from '../componentes/ui.jsx';
@@ -153,6 +153,7 @@ function Detalhe({ id }) {
       const r = ou(await supabase.rpc('contagem_finalizar', { p_contagem: id, p_ajustar: ajustar }));
       avisar(ajustar ? `Estoque ajustado em ${r.ajustados} produto(s) (${moeda(r.valor_ajuste)} a custo).` : 'Contagem fechada sem mexer no estoque.', 'ok');
       setFechar(false); setVersao((v) => v + 1);
+      if (ajustar) api('marketplaces', { corpo: { acao: 'ml_sincronizar' } }).catch(() => {}); // estoque ajustado: atualiza os anúncios
     } catch (e) { avisar(e.message, 'erro'); }
   }
   async function cancelar() {

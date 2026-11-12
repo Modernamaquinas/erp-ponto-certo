@@ -10,6 +10,14 @@
 // finalizar aceita entrega? { nome, telefone, data, horario } (com endereco_entrega)
 import { supabaseServico, exigirUsuario, rota, ErroHttp } from './_lib/supabase.js';
 import { emitirNotaDaVenda } from './_lib/pdv.js';
+import { sincronizarMl, mlConfigurado } from './_lib/marketplaces.js';
+
+// Depois de uma venda/consignado/reserva que mexe no estoque: atualiza os anúncios do ML na hora (pedidos novos do ML primeiro,
+// para não reenviar quantidade velha). Nunca derruba a venda: erro fica no anúncio e a rotina agendada tenta de novo.
+function atualizarCanais(sb) {
+  if (!mlConfigurado()) return Promise.resolve(null);
+  return Promise.race([sincronizarMl(sb).catch((e) => ({ erro: e.message })), new Promise((ok) => setTimeout(() => ok({ erro: 'tempo esgotado' }), 20000))]);
+}
 
 export const config = { maxDuration: 60 };
 const TODOS = ['admin', 'financeiro', 'vendedor'];
@@ -49,6 +57,7 @@ export default rota(async (req, res) => {
       const venda = (await sb.from('vendas').select('id, total').eq('id', vendaId).single()).data;
       const pago = (c.pagamentos || []).reduce((s, x) => s + Number(x.valor || 0), 0);
       const resposta = { venda_id: vendaId, total: Number(venda.total), troco: Math.round((pago - Number(venda.total)) * 100) / 100 };
+      const canais = atualizarCanais(sb); // em paralelo com a NFC-e
       if (c.emitir_nfce !== false) {
         // a venda já está gravada: se a NFC-e falhar, ela pode ser emitida de novo depois (acao emitir_nfce)
         try {
@@ -57,6 +66,7 @@ export default rota(async (req, res) => {
           resposta.erro_nfce = e.message;
         }
       }
+      resposta.canais = await canais;
       return res.json(resposta);
     }
 
@@ -69,6 +79,7 @@ export default rota(async (req, res) => {
         validade: c.validade || null, observacao: c.observacao || null, tipo: ['prevenda', 'consignado', 'reserva'].includes(c.tipo) ? c.tipo : 'orcamento', desconto_geral: c.desconto_geral || 0, itens: c.itens || [] };
       const { data, error } = await sb.rpc('salvar_orcamento', { p });
       if (error) throw erroBanco(error);
+      if (['consignado', 'reserva'].includes(p.tipo)) await atualizarCanais(sb); // o estoque saiu
       return res.json({ id: data });
     }
 
@@ -83,6 +94,7 @@ export default rota(async (req, res) => {
       await operador(sb, c.codigo);
       const { error } = await sb.rpc('consignado_devolver', { p: { operador_codigo: String(c.codigo), id: Number(c.id) } });
       if (error) throw erroBanco(error);
+      await atualizarCanais(sb); // o estoque voltou
       return res.json({ ok: true });
     }
 

@@ -83,3 +83,13 @@ ERP web da Ponto Certo Ferragens (pt-BR), substituindo o DirectControl/Acertsoft
   102/5102. NCM: `public/fiscal/ncm.json` gerado da tabela oficial por `scripts/gerar-ncm.mjs`; CFOP/CSOSN/CST em `src/lib/fiscalTabelas.js`.
 - Lista de compras (`/compras/lista`, `lista_compras`): em falta (estoque ≤ 0, com venda ou mínimo) e no mínimo; sugestão = repor até
   max(mínimo, média diária × cobertura), pelo menos o mínimo; agrupada pelo último fornecedor (compra mais recente).
+- Marketplaces (`/marketplaces`, 022/023, `api/marketplaces.js` + `api/_lib/marketplaces.js`): Mercado Livre da conta MODERNAMAQUINAS
+  (68412748), só os anúncios da Ponto Certo (`ml_produtos.categoria = 'bloqueado'` no Supabase do Moderna Gestão). O ERP **não guarda
+  nem renova o token do ML**: chama a edge function `ml-estoque` (fonte em `Documents\Moderna Gestao\supabase\functions\ml-estoque`,
+  copiada em `integracao-mercadolivre`), que usa `ml_contas`/`tokenValido` e recusa anúncio da Moderna. Segredos: `ERP_ML_SECRET`
+  (igual nos dois lados), `ML_ESTOQUE_URL`, `MARKETPLACE_CRON_SECRET` — `scripts/configurar-marketplaces.mjs` publica e grava sem imprimir.
+  Anúncio ↔ produto(s) em `marketplace_composicao` (kit = quantidade; vínculo automático por GTIN único). Estoque enviado =
+  min(floor((estoque − reserva) / qtd)). Trigger em `produtos.estoque` marca os anúncios `pendente`; o PDV (finalizar, consignado,
+  reserva, devolução) chama `sincronizarMl` em paralelo com a NFC-e (importa pedidos novos antes de enviar), e `scripts/agendar-marketplaces.mjs`
+  agenda o pg_cron de 5 min. Vendas do ML: `marketplace_registrar_pedido` (idempotente; cancelado estorna; sem caixa; forma "MERCADO LIVRE").
+  Envio exige a chave geral `marketplace_config.sincronizar` e a do anúncio; ligar o envio liga também a importação de vendas.
