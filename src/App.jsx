@@ -23,6 +23,7 @@ import EntradaNota from './paginas/EntradaNota.jsx';
 import ListaCompras from './paginas/ListaCompras.jsx';
 import Marketplaces from './paginas/Marketplaces.jsx';
 import PainelCaixa from './paginas/PainelCaixa.jsx';
+import AcertoReceber from './paginas/AcertoReceber.jsx';
 import Contagem from './paginas/Contagem.jsx';
 import Vendas from './paginas/Vendas.jsx';
 import Compras from './paginas/Compras.jsx';
@@ -89,6 +90,7 @@ function Conteudo({ rota, perfil }) {
     case '/etiquetas': return <Etiquetas key={`${params.produto}-${params.compra}`} params={params} />;
     case '/operadores': return perfil.papel === 'admin' ? <Usuarios /> : semAcesso;
     case '/receber': return fin ? <Receber params={params} /> : semAcesso;
+    case '/receber/acerto': return fin ? <AcertoReceber params={params} /> : semAcesso;
     case '/cobrancas': return fin ? <Cobrancas params={params} /> : semAcesso;
     case '/pagar': return fin ? <Pagar params={params} /> : semAcesso;
     case '/caixa': return fin ? <Caixa /> : semAcesso;

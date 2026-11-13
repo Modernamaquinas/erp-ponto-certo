@@ -98,3 +98,7 @@ ERP web da Ponto Certo Ferragens (pt-BR), substituindo o DirectControl/Acertsoft
   preenche os dias encerrados (até ontem) com `painel_caixa_mes` (dinheiro − troco, cartões, PIX; ML/Shopee fora) e o resto a prazo num
   item extra `origem: 'erp'`, pela ação `caixa` da ml-estoque (rotina de 5 min + botão). Não altera mês fechado nem a coluna ML;
   grava só se mudou e com `atualizado_em` igual ao lido. O painel só conhece 2026 (meses fixos no index.html).
+- Acerto do crediário no balcão (`/receber/acerto?ids=`, 026/027, `AcertoReceber.jsx`): em Contas a Receber marca os títulos (um cliente)
+  → "Receber selecionados". Na tela dá para marcar/desmarcar os em aberto do cliente e pagar parte de um; várias formas, troco no dinheiro.
+  `receber_acerto` (invoker, RLS fin) distribui cada pagamento do vencimento mais antigo ao mais novo via `baixar_conta_receber` e lança
+  no caixa como o PDV (entrada por forma + saída do troco). Títulos em cobrança Asaas recusados. Comprovante 80 mm por `imprimirHtml`.

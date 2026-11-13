@@ -23,7 +23,7 @@ async function preparar() {
     alter default privileges in schema public grant all on tables to anon, authenticated;
     alter default privileges in schema public grant all on sequences to anon, authenticated;
   `);
-  for (const f of ['002_seguranca.sql', '004_cartoes_seguranca.sql', '006_fiscal_seguranca.sql', '008_pdv_seguranca.sql', '011_edicao_seguranca.sql', '013_etiquetas_seguranca.sql', '017_relatorios_seguranca.sql', '019_consignado_seguranca.sql', '021_entrada_compras_seguranca.sql', '023_marketplaces_seguranca.sql', '025_painel_caixa_seguranca.sql']) {
+  for (const f of ['002_seguranca.sql', '004_cartoes_seguranca.sql', '006_fiscal_seguranca.sql', '008_pdv_seguranca.sql', '011_edicao_seguranca.sql', '013_etiquetas_seguranca.sql', '017_relatorios_seguranca.sql', '019_consignado_seguranca.sql', '021_entrada_compras_seguranca.sql', '023_marketplaces_seguranca.sql', '025_painel_caixa_seguranca.sql', '027_acerto_receber_seguranca.sql']) {
     await db.exec(readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), 'utf8'));
   }
   await db.exec(`

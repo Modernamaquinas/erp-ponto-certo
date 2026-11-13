@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { supabase, api, ou } from '../lib/supabase.js';
 import { moeda, data, hoje, somarDias, normalizaBusca, documento } from '../lib/formato.js';
-import { usePerfil } from '../lib/contexto.js';
+import { usePerfil, navegar } from '../lib/contexto.js';
 import { Pagina, Filtros, Campo, Tabela, Paginacao, Modal, Etiqueta, Aviso, Detalhes, useConsulta, useAtrasado, useSelecao, useAvisar } from '../componentes/ui.jsx';
 
 const POR_PAGINA = 50;
@@ -61,9 +61,14 @@ export default function Receber({ params }) {
     <Pagina titulo="Contas a Receber" subtitulo="Crediário importado do DirectControl e cobrança pelo Asaas"
       acoes={<>
         <button type="button" className="btn btn-sec" onClick={() => setLote(true)}>Fechamento do crediário</button>
-        <button type="button" className="btn btn-pri" disabled={!selecionados.length || clientesSel.size !== 1} onClick={() => setGerar(true)}
+        <button type="button" className="btn btn-sec" disabled={!selecionados.length || clientesSel.size !== 1} onClick={() => setGerar(true)}
           title={clientesSel.size > 1 ? 'Selecione títulos de um único cliente' : undefined}>
           Gerar cobrança{selecionados.length ? ` (${selecionados.length})` : ''}
+        </button>
+        <button type="button" className="btn btn-pri" disabled={!selecionados.length || clientesSel.size !== 1}
+          onClick={() => navegar(`/receber/acerto?ids=${selecionados.map((l) => l.id).join(',')}`)}
+          title={clientesSel.size > 1 ? 'Selecione títulos de um único cliente' : 'Marque os títulos que o cliente vai pagar no balcão'}>
+          Receber selecionados{selecionados.length ? ` (${selecionados.length})` : ''}
         </button>
       </>}>
       <Filtros>
@@ -84,7 +89,7 @@ export default function Receber({ params }) {
         {f.cliente && <button type="button" className="btn btn-sec btn-peq" onClick={() => setF((x) => ({ ...x, cliente: '' }))}>Cliente {f.cliente} ×</button>}
       </Filtros>
 
-      {clientesSel.size > 1 && <Aviso tipo="alerta">Uma cobrança reúne títulos de um único cliente. Desmarque os de outros clientes.</Aviso>}
+      {clientesSel.size > 1 && <Aviso tipo="alerta">A cobrança e o recebimento no balcão reúnem títulos de um único cliente. Desmarque os de outros clientes.</Aviso>}
 
       <div className="resumo-linha">
         <span>Saldo filtrado: <strong>{moeda(totais.dados?.saldo)}</strong></span>
