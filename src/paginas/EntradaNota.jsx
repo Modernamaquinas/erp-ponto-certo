@@ -9,6 +9,7 @@ import { navegar } from '../lib/contexto.js';
 import { lerNfe, chaveValida, sugestaoFiscalVenda } from '../lib/nfeXml.js';
 import { formatarNcm, descricao, CSOSNS } from '../lib/fiscalTabelas.js';
 import { Pagina, Campo, Aviso, Etiqueta, Modal, useAvisar } from '../componentes/ui.jsx';
+import { LeitorCamera } from './PreVenda.jsx';
 import { CampoNcm, CampoCfop, CampoCsosn, CampoOrigem, CampoCest, SugestoesCadastro } from '../componentes/CamposFiscais.jsx';
 
 const CNPJ_LOJA = '11877694000166';
@@ -73,13 +74,14 @@ function Origem({ aoCarregar }) {
   const [chave, setChave] = useState('');
   const [buscando, setBuscando] = useState(false);
   const [resumo, setResumo] = useState(null);
+  const [camera, setCamera] = useState(false);
   const arquivo = useRef(null);
   async function lerArquivo(f) {
     if (!f) return;
     try { aoCarregar(await f.text()); } catch (e) { avisar(e.message, 'erro'); }
   }
-  async function buscarChave(manifestar = false) {
-    const c = chave.replace(/\D/g, '');
+  async function buscarChave(manifestar = false, lida = null) {
+    const c = (lida ?? chave).replace(/\D/g, '');
     if (!chaveValida(c)) return avisar('Chave inválida: confira os 44 dígitos (o último é o dígito verificador).', 'erro');
     setBuscando(true);
     try {
@@ -90,6 +92,13 @@ function Origem({ aoCarregar }) {
       else avisar('A nota ainda não chegou à Focus pela SEFAZ (pode levar algumas horas depois da emissão). Use o XML do fornecedor ou tente mais tarde.', 'erro');
     } catch (e) { avisar(e.message, 'erro'); }
     setBuscando(false);
+  }
+  // câmera do celular: o código de barras do DANFE é a própria chave (44 dígitos, CODE-128)
+  function lerCamera(codigo) {
+    const c = String(codigo).replace(/\D/g, '');
+    if (c.length !== 44 || !chaveValida(c)) return { texto: `Esse código não é a chave da NF-e (${c.length} dígitos). Aponte para o código de barras do DANFE.` };
+    setChave(c); setCamera(false); buscarChave(false, c);
+    return { texto: 'Chave lida' };
   }
   return (
     <div className="entrada-origem">
@@ -106,7 +115,10 @@ function Origem({ aoCarregar }) {
         <input className="entrada-chave" value={chave} onChange={(e) => setChave(e.target.value.replace(/\D/g, '').slice(0, 44))} inputMode="numeric" placeholder="44 dígitos" autoFocus />
         <small className="texto-fraco">{chave.length}/44{chave.length === 44 && (chaveValida(chave) ? ' ✓' : ' — dígito verificador não confere')}</small>
         <button type="submit" className="btn btn-pri" disabled={buscando || chave.length !== 44}>{buscando ? 'Buscando…' : 'Buscar nota'}</button>
+        <button type="button" className="btn btn-sec" onClick={() => setCamera(true)}>📷 Ler código de barras pela câmera</button>
+        <small className="texto-fraco">No celular: aponte a câmera para o código de barras do DANFE (o comprido, acima da chave), com boa luz. A nota é buscada sozinha.</small>
       </form>
+      {camera && <LeitorCamera alta aoLer={lerCamera} aoFechar={() => setCamera(false)} />}
       {resumo && (
         <Modal aberto titulo="Nota encontrada, falta a ciência" aoFechar={() => setResumo(null)}
           rodape={<><button type="button" className="btn btn-sec" onClick={() => setResumo(null)}>Agora não</button>

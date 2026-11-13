@@ -188,7 +188,7 @@ function BuscaManual({ aoEscolher, aoCodigo }) {
   );
 }
 
-export function LeitorCamera({ aoLer, aoFechar }) {
+export function LeitorCamera({ aoLer, aoFechar, alta = false }) {
   const video = useRef(null);
   const [erro, setErro] = useState('');
   const [ultimo, setUltimo] = useState(null);
@@ -200,7 +200,7 @@ export function LeitorCamera({ aoLer, aoFechar }) {
     iniciarLeitor(video.current, async (codigo) => {
       const p = await lerRef.current(codigo);
       if (vivo && p) { setUltimo(p); setContagem((n) => n + 1); }
-    }).then((f) => { if (vivo) parar = f; else f(); }).catch((e) => setErro(e.message));
+    }, { alta }).then((f) => { if (vivo) parar = f; else f(); }).catch((e) => setErro(e.message));
     return () => { vivo = false; parar?.(); };
   }, []);
   return (

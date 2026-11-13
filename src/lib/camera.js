@@ -18,10 +18,10 @@ async function criarDetector() {
  * Liga a câmera traseira no <video> e chama aoLer(codigo) a cada código lido (o mesmo código só repete
  * depois de `intervalo` ms, para não somar duas vezes o mesmo produto). Devolve uma função que desliga.
  */
-export async function iniciarLeitor(video, aoLer, { intervalo = 1500 } = {}) {
+export async function iniciarLeitor(video, aoLer, { intervalo = 1500, alta = false } = {}) {
   if (!navigator.mediaDevices?.getUserMedia) throw new Error('Este navegador não dá acesso à câmera (abra o ERP pelo endereço https).');
   const stream = await navigator.mediaDevices.getUserMedia({
-    audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+    audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: alta ? 1920 : 1280 }, height: { ideal: alta ? 1080 : 720 } },
   }).catch((e) => {
     throw new Error(e.name === 'NotAllowedError' ? 'Permita o uso da câmera para este site nas configurações do navegador.' : `Câmera indisponível: ${e.message}`);
   });
