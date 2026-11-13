@@ -36,11 +36,16 @@ if (so !== '--so-vercel') {
   try { rodar('npx', ['--yes', 'supabase@latest', 'secrets', 'set', '--env-file', arq, '--project-ref', ref, '--yes'], { cwd: PAINEL }); } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 if (so !== '--so-supabase') {
-  rodar('npx', vercel(['--yes', 'vercel', 'link', '--yes', '--project', 'erp-ponto-certo']));
+  // API REST da Vercel (o `vercel link` do CLI falha com token de time: "User not found")
+  const escopo = process.env.VERCEL_SCOPE ? `&slug=${encodeURIComponent(process.env.VERCEL_SCOPE)}` : '';
   for (const [nome, valor] of Object.entries({ ML_ESTOQUE_URL, ERP_ML_SECRET, MARKETPLACE_CRON_SECRET })) {
-    console.log(`Vercel: ${nome}`);
-    spawnSync('npx', vercel(['--yes', 'vercel', 'env', 'rm', nome, 'production', '--yes']), { stdio: 'ignore', shell: process.platform === 'win32' });
-    rodar('npx', vercel(['--yes', 'vercel', 'env', 'add', nome, 'production']), { entrada: valor });
+    const r = await fetch(`https://api.vercel.com/v10/projects/erp-ponto-certo/env?upsert=true${escopo}`, {
+      method: 'POST', headers: { Authorization: `Bearer ${process.env.VERCEL_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: nome, value: valor, type: 'encrypted', target: ['production'] }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { console.error(`Vercel ${nome}: ${j.error?.message || r.status}`); process.exit(1); }
+    console.log(`Vercel: ${nome} gravada`);
   }
   console.log('Pronto. Faça um novo deploy (git push) para a Vercel carregar as variáveis.');
 }
