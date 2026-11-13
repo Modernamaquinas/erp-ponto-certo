@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { supabase, ou } from '../lib/supabase.js';
 import { moeda, data, hoje, documento } from '../lib/formato.js';
 import { navegar } from '../lib/contexto.js';
-import { imprimirHtml } from '../lib/impressao.js';
+import ComprovantesCrediario from '../componentes/ComprovantesCrediario.jsx';
 import { Pagina, Campo, Aviso, Etiqueta, useConsulta, useAvisar } from '../componentes/ui.jsx';
 
 const FORMAS = [['dinheiro', 'Dinheiro'], ['pix', 'PIX'], ['debito', 'Cartão de débito'], ['credito', 'Cartão de crédito'], ['cheque', 'Cheque']];
@@ -14,7 +14,6 @@ const num = (v) => Number(String(v ?? '').replace(',', '.')) || 0;
 const r2 = (v) => Math.round((v + Number.EPSILON) * 100) / 100;
 const txt = (v) => String(r2(v).toFixed(2)).replace('.', ',');
 const diasAtraso = (venc) => Math.floor((new Date(`${hoje()}T12:00:00`) - new Date(`${venc}T12:00:00`)) / 86400000);
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 export default function AcertoReceber({ params }) {
   const avisar = useAvisar();
@@ -80,7 +79,7 @@ export default function AcertoReceber({ params }) {
     setSalvando(false);
   }
 
-  if (resultado) return <Comprovante r={resultado} cliente={cliente} />;
+  if (resultado) return <Comprovante r={resultado} />;
 
   return (
     <Pagina titulo="Acerto do crediário" subtitulo={cliente ? `${cliente.id} — ${cliente.nome}` : 'Recebimento no balcão'}
@@ -151,26 +150,15 @@ export default function AcertoReceber({ params }) {
   );
 }
 
-function Comprovante({ r, cliente }) {
-  function imprimir() {
-    const linhas = r.titulos.map((t) => `<tr><td>${esc(data(t.vencimento))} ${esc(t.historico)}</td><td class="d">${esc(moeda(t.pago))}</td></tr>
-      ${Number(t.saldo) > 0 ? `<tr><td colspan="2" style="font-size:11px">&nbsp;&nbsp;resta ${esc(moeda(t.saldo))}</td></tr>` : ''}`).join('');
-    const formas = r.pagamentos.map((p) => `<tr><td>${esc(NOME_FORMA[p.forma] || p.forma)}</td><td class="d">${esc(moeda(p.valor))}</td></tr>`).join('');
-    imprimirHtml(`<h1>PONTO CERTO FERRAGENS</h1><div class="c">COMPROVANTE DE RECEBIMENTO</div><div class="c">${esc(data(r.data))}</div><hr>
-      <div>Cliente: ${esc(r.cliente_id)} - ${esc(r.cliente)}</div><hr>
-      <table>${linhas}</table><hr>
-      <table><tr><td class="g">TOTAL PAGO</td><td class="d g">${esc(moeda(r.total))}</td></tr>${formas}
-      ${Number(r.troco) > 0 ? `<tr><td>Troco</td><td class="d">${esc(moeda(r.troco))}</td></tr>` : ''}</table><hr>
-      <div class="c">Recebido por ${esc(r.usuario || '')}</div><br><div class="c">_______________________________</div><div class="c">assinatura</div>`,
-    { titulo: 'Comprovante de recebimento' });
-  }
+function Comprovante({ r }) {
   const restantes = r.titulos.filter((t) => Number(t.saldo) > 0);
   return (
     <Pagina titulo="Recebimento registrado" subtitulo={`${r.cliente_id} — ${r.cliente}`}
-      acoes={<>
-        <button type="button" className="btn btn-pri" onClick={imprimir}>Imprimir comprovante</button>
-        <button type="button" className="btn btn-sec" onClick={() => navegar(`/receber?cliente=${r.cliente_id}`)}>Voltar para Contas a Receber</button>
-      </>}>
+      acoes={<button type="button" className="btn btn-sec" onClick={() => navegar(`/receber?cliente=${r.cliente_id}`)}>Voltar para Contas a Receber</button>}>
+      <h3>Imprimir</h3>
+      <ComprovantesCrediario ids={r.titulos.map((t) => t.id)} acerto={r} />
+      <p className="texto-fraco">Comprovante de quitação: o que foi pago agora, as formas e a declaração de quitação dos títulos quitados (e de todo o
+        crediário, se não sobrar saldo). Contas pagas: cada compra com os itens, quantidades, valores, vencimentos e as datas de pagamento.</p>
       <div className="pdv-valores">
         <div className="pdv-valor v-total"><span>Total pago</span><strong>{moeda(r.total)}</strong></div>
         {Number(r.troco) > 0 && <div className="pdv-valor v-troco"><span>Troco</span><strong>{moeda(r.troco)}</strong></div>}

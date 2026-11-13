@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { supabase, api, ou } from '../lib/supabase.js';
 import { moeda, data, hoje, somarDias, normalizaBusca, documento } from '../lib/formato.js';
 import { usePerfil, navegar } from '../lib/contexto.js';
+import ComprovantesCrediario from '../componentes/ComprovantesCrediario.jsx';
 import { Pagina, Filtros, Campo, Tabela, Paginacao, Modal, Etiqueta, Aviso, Detalhes, useConsulta, useAtrasado, useSelecao, useAvisar } from '../componentes/ui.jsx';
 
 const POR_PAGINA = 50;
@@ -54,6 +55,9 @@ export default function Receber({ params }) {
   const linhas = lista.dados || [];
   const selecionados = linhas.filter((l) => sel.selecionados.has(l.id));
   const clientesSel = new Set(selecionados.map((l) => l.cliente_id));
+  const soAbertos = selecionados.every((l) => l.status === 'aberto' && !l.cobranca_id);
+  const comPagamento = selecionados.length > 0 && selecionados.every((l) => Number(l.valor_pago) > 0);
+  const [imprimir, setImprimir] = useState(false);
 
   const recarregar = () => { sel.limpar(); lista.recarregar(); totais.recarregar(); };
 
@@ -61,11 +65,13 @@ export default function Receber({ params }) {
     <Pagina titulo="Contas a Receber" subtitulo="Crediário importado do DirectControl e cobrança pelo Asaas"
       acoes={<>
         <button type="button" className="btn btn-sec" onClick={() => setLote(true)}>Fechamento do crediário</button>
-        <button type="button" className="btn btn-sec" disabled={!selecionados.length || clientesSel.size !== 1} onClick={() => setGerar(true)}
+        <button type="button" className="btn btn-sec" disabled={!selecionados.length || clientesSel.size !== 1 || !soAbertos} onClick={() => setGerar(true)}
           title={clientesSel.size > 1 ? 'Selecione títulos de um único cliente' : undefined}>
           Gerar cobrança{selecionados.length ? ` (${selecionados.length})` : ''}
         </button>
-        <button type="button" className="btn btn-pri" disabled={!selecionados.length || clientesSel.size !== 1}
+        <button type="button" className="btn btn-sec" disabled={!comPagamento || clientesSel.size !== 1} onClick={() => setImprimir(true)}
+          title="Marque títulos pagos (ou pagos em parte) de um cliente">🖨 Comprovantes</button>
+        <button type="button" className="btn btn-pri" disabled={!selecionados.length || clientesSel.size !== 1 || !soAbertos}
           onClick={() => navegar(`/receber/acerto?ids=${selecionados.map((l) => l.id).join(',')}`)}
           title={clientesSel.size > 1 ? 'Selecione títulos de um único cliente' : 'Marque os títulos que o cliente vai pagar no balcão'}>
           Receber selecionados{selecionados.length ? ` (${selecionados.length})` : ''}
@@ -98,7 +104,7 @@ export default function Receber({ params }) {
       </div>
 
       <Tabela carregando={lista.carregando} erro={lista.erro} linhas={lista.dados} aoClicar={setDetalhe}
-        selecao={{ ...sel, podeSelecionar: (l) => l.status === 'aberto' && !l.cobranca_id }}
+        selecao={{ ...sel, podeSelecionar: (l) => (l.status === 'aberto' && !l.cobranca_id) || Number(l.valor_pago) > 0 }}
         colunas={[
           { titulo: 'Vencimento', render: (l) => data(l.vencimento) },
           { titulo: 'Cliente', render: (l) => <><span className="cod">{l.cliente_id}</span> {l.clientes?.nome}</> },
@@ -110,6 +116,10 @@ export default function Receber({ params }) {
       <Paginacao pagina={pagina} total={lista.total} porPagina={POR_PAGINA} aoMudar={setPagina} />
 
       {detalhe && <DetalheTitulo titulo={detalhe} aoFechar={() => setDetalhe(null)} aoAlterar={() => { setDetalhe(null); recarregar(); }} />}
+      {imprimir && <Modal aberto titulo={`Comprovantes — ${selecionados[0]?.clientes?.nome || ''}`} aoFechar={() => setImprimir(false)}>
+        <p>{selecionados.length} título(s) selecionado(s).</p>
+        <ComprovantesCrediario ids={selecionados.map((l) => l.id)} />
+      </Modal>}
       {gerar && <GerarCobranca titulos={selecionados} aoFechar={() => setGerar(false)}
         aoGerar={() => { setGerar(false); avisar('Cobrança gerada no Asaas.'); recarregar(); }} />}
       {lote && <CobrancaEmLote aoFechar={() => { setLote(false); recarregar(); }} />}
@@ -159,6 +169,7 @@ function DetalheTitulo({ titulo: t, aoFechar, aoAlterar }) {
         ['Baixa feita em', t.baixa_origem && { legado: 'DirectControl', erp: 'ERP (manual)', asaas: 'Asaas (automática)' }[t.baixa_origem]],
         ['Observação', t.observacao],
       ]} />
+      {Number(t.valor_pago) > 0 && <><h3>Imprimir</h3><ComprovantesCrediario ids={[t.id]} /></>}
       {!t.baixa_replicada_legado && <Aviso tipo="alerta">Baixado aqui, mas ainda em aberto no DirectControl — dê a baixa lá também.</Aviso>}
 
       <h3>Recebimentos</h3>

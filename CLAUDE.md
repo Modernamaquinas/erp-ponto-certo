@@ -102,3 +102,7 @@ ERP web da Ponto Certo Ferragens (pt-BR), substituindo o DirectControl/Acertsoft
   → "Receber selecionados". Na tela dá para marcar/desmarcar os em aberto do cliente e pagar parte de um; várias formas, troco no dinheiro.
   `receber_acerto` (invoker, RLS fin) distribui cada pagamento do vencimento mais antigo ao mais novo via `baixar_conta_receber` e lança
   no caixa como o PDV (entrada por forma + saída do troco). Títulos em cobrança Asaas recusados. Comprovante 80 mm por `imprimirHtml`.
+- Comprovantes do crediário (`src/lib/comprovanteReceber.js` + `componentes/ComprovantesCrediario.jsx`): "Comprovante de quitação" (pago,
+  formas, troco, declaração de quitação; sem saldo em aberto declara o crediário todo quitado) e "Contas pagas" (compra de origem por
+  `venda_id` com itens, vencimentos, recebimentos com data/forma). No fim do acerto, no detalhe do título e pela seleção de títulos pagos
+  em Contas a Receber (botão 🖨 Comprovantes). Térmica 80 mm ou A4 (preferência em localStorage `pc-comprovante-a4`).
