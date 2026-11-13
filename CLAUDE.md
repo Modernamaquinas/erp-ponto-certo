@@ -93,3 +93,8 @@ ERP web da Ponto Certo Ferragens (pt-BR), substituindo o DirectControl/Acertsoft
   reserva, devolução) chama `sincronizarMl` em paralelo com a NFC-e (importa pedidos novos antes de enviar), e `scripts/agendar-marketplaces.mjs`
   agenda o pg_cron de 5 min. Vendas do ML: `marketplace_registrar_pedido` (idempotente; cancelado estorna; sem caixa; forma "MERCADO LIVRE").
   Envio exige a chave geral `marketplace_config.sincronizar` e a do anúncio; ligar o envio liga também a importação de vendas.
+- Painel financeiro (`/painel-financeiro`, 024/025, `api/_lib/painel.js`): abre em iframe o painel de fechamento de caixa da Ponto Certo
+  (ponto-certo-ferragens-dashboard.vercel.app, tabela `pontocerto_caixa_meses` no mesmo Supabase do painel). De dez/2026 em diante o ERP
+  preenche os dias encerrados (até ontem) com `painel_caixa_mes` (dinheiro − troco, cartões, PIX; ML/Shopee fora) e o resto a prazo num
+  item extra `origem: 'erp'`, pela ação `caixa` da ml-estoque (rotina de 5 min + botão). Não altera mês fechado nem a coluna ML;
+  grava só se mudou e com `atualizado_em` igual ao lido. O painel só conhece 2026 (meses fixos no index.html).

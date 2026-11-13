@@ -1,5 +1,5 @@
-// Marketplaces (/marketplaces): anúncios da Ponto Certo no Mercado Livre (conta MODERNAMAQUINAS, via ml-estoque do Moderna
-// Gestão) ligados aos produtos do ERP. Estoque do anúncio = (estoque − reserva) ÷ quantidade do kit; enviado na hora depois das
+// Marketplaces (/marketplaces): anúncios da Ponto Certo no Mercado Livre (conta MODERNAMAQUINAS, via ml-estoque do painel
+// financeiro da Ponto Certo) ligados aos produtos do ERP. Estoque do anúncio = (estoque − reserva) ÷ quantidade do kit; enviado na hora depois das
 // vendas do PDV e pela rotina agendada. Vendas do ML entram no ERP e baixam o estoque. Banco: 022/023; API: api/marketplaces.js.
 import { useMemo, useRef, useState } from 'react';
 import { supabase, api, ou } from '../lib/supabase.js';

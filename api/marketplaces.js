@@ -3,10 +3,12 @@
 //   ml_ler_anuncios              -> lê os anúncios da Ponto Certo no ML e vincula pelo GTIN
 //   ml_sincronizar               -> importa pedidos novos e envia o estoque dos anúncios pendentes
 //   ml_importar_pedidos { desde } -> reimporta pedidos desde a data (ISO)
+//   painel_enviar                -> envia as vendas dos dias encerrados ao painel de caixa (dez/2026 em diante)
 // POST /api/marketplaces?cron=1 com x-cron-secret = MARKETPLACE_CRON_SECRET: rotina agendada (pg_cron), sem usuário.
 import { timingSafeEqual } from 'node:crypto';
 import { supabaseServico, exigirUsuario, rota, ErroHttp } from './_lib/supabase.js';
 import { mlConfigurado, lerAnunciosMl, sincronizarMl, importarPedidosMl, enviarEstoqueMl } from './_lib/marketplaces.js';
+import { enviarCaixaPainel } from './_lib/painel.js';
 
 export const config = { maxDuration: 60 };
 
@@ -22,7 +24,9 @@ export default rota(async (req, res) => {
   if (req.query?.cron) {
     if (!cronOk(req)) throw new ErroHttp(401, 'Não autorizado');
     if (!mlConfigurado()) return res.json({ ok: true, desligado: true });
-    return res.json({ ok: true, mercadolivre: await sincronizarMl(sb) });
+    const [ml, painel] = await Promise.allSettled([sincronizarMl(sb), enviarCaixaPainel(sb)]);
+    const r = (p) => (p.status === 'fulfilled' ? p.value : { erro: String(p.reason?.message || p.reason) });
+    return res.json({ ok: true, mercadolivre: r(ml), painel: r(painel) });
   }
   await exigirUsuario(req, ['admin', 'financeiro']);
   const c = req.body || {};
@@ -42,6 +46,8 @@ export default rota(async (req, res) => {
       if (!/^\d{4}-\d{2}-\d{2}/.test(String(c.desde || ''))) throw new ErroHttp(400, 'Informe a data inicial');
       return res.json(await importarPedidosMl(sb, { desde: new Date(`${String(c.desde).slice(0, 10)}T00:00:00-03:00`).toISOString() }));
     }
+    case 'painel_enviar':
+      return res.json(await enviarCaixaPainel(sb));
     default:
       throw new ErroHttp(400, 'Ação inválida');
   }

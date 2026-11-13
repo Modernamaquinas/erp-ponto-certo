@@ -22,6 +22,7 @@ import Relatorios from './paginas/Relatorios.jsx';
 import EntradaNota from './paginas/EntradaNota.jsx';
 import ListaCompras from './paginas/ListaCompras.jsx';
 import Marketplaces from './paginas/Marketplaces.jsx';
+import PainelCaixa from './paginas/PainelCaixa.jsx';
 import Contagem from './paginas/Contagem.jsx';
 import Vendas from './paginas/Vendas.jsx';
 import Compras from './paginas/Compras.jsx';
@@ -36,6 +37,7 @@ const MENU = [
     { rota: '/caixa', rotulo: 'Caixa', icone: '▤' },
     { rota: '/cartoes', rotulo: 'Cartões e PIX', icone: '▭' },
     { rota: '/marketplaces', rotulo: 'Marketplaces (ML)', icone: '⇄' },
+    { rota: '/painel-financeiro', rotulo: 'Painel financeiro', icone: '📊' },
   ] },
   { grupo: 'Cadastros', itens: [
     { rota: '/clientes', rotulo: 'Clientes', icone: '☺' },
@@ -78,6 +80,7 @@ function Conteudo({ rota, perfil }) {
     case '/compras/entrada': return fin ? <EntradaNota /> : semAcesso;
     case '/compras/lista': return fin ? <ListaCompras /> : semAcesso;
     case '/marketplaces': return fin ? <Marketplaces /> : semAcesso;
+    case '/painel-financeiro': return fin ? <PainelCaixa /> : semAcesso;
     case '/notas': return <NotasFiscais params={params} />;
     case '/pdv': return <PDV params={params} modo="venda" />;
     case '/orcamento': return <PDV params={params} modo="orcamento" />;
