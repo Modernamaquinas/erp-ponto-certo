@@ -1,6 +1,6 @@
-// Marketplaces: o ERP fala com o Mercado Livre pela edge function ml-estoque do Supabase do Moderna Gestão (mesmo acesso e mesma
+// Marketplaces: o ERP fala com o Mercado Livre pela edge function ml-estoque do Supabase do painel financeiro da Ponto Certo (mesmo acesso e mesma
 // renovação de token dos painéis da Moderna). Variáveis (Vercel e .env):
-//   ML_ESTOQUE_URL   https://<projeto do Moderna Gestão>.supabase.co/functions/v1/ml-estoque
+//   ML_ESTOQUE_URL   https://<projeto do painel da Ponto Certo>.supabase.co/functions/v1/ml-estoque
 //   ERP_ML_SECRET    o mesmo valor do secret ERP_ML_SECRET daquele projeto
 //   MARKETPLACE_CRON_SECRET  cabeçalho da rotina agendada (pg_cron do Supabase do ERP)
 const CANAL = 'mercadolivre';

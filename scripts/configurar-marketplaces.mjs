@@ -1,5 +1,5 @@
 // Liga o ERP ao Mercado Livre (uma vez). Lê os valores do .env do ERP e não imprime nenhum segredo.
-//   1) publica a edge function ml-estoque no Supabase do Moderna Gestão (precisa de `npx supabase login` antes)
+//   1) publica a edge function ml-estoque no Supabase do painel financeiro da Ponto Certo (SUPABASE_ACCESS_TOKEN no .env)
 //   2) grava o secret ERP_ML_SECRET naquele projeto
 //   3) grava ML_ESTOQUE_URL, ERP_ML_SECRET e MARKETPLACE_CRON_SECRET na Vercel do ERP (produção)
 // Login sem navegador (o terminal do Claude Code não abre o login interativo): no .env do ERP, coloque
@@ -11,7 +11,7 @@ import { writeFileSync, rmSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const GESTAO = 'C:/Users/DIONI/Documents/Moderna Gestao';
+const PAINEL = 'C:/Users/DIONI/Documents/Dashboard Financeiro Ponto Certo Ferragens';
 const { ML_ESTOQUE_URL, ERP_ML_SECRET, MARKETPLACE_CRON_SECRET } = process.env;
 if (!ML_ESTOQUE_URL || !ERP_ML_SECRET || !MARKETPLACE_CRON_SECRET) { console.error('Faltam ML_ESTOQUE_URL / ERP_ML_SECRET / MARKETPLACE_CRON_SECRET no .env'); process.exit(1); }
 const ref = new URL(ML_ESTOQUE_URL).hostname.split('.')[0];
@@ -28,12 +28,12 @@ const vercel = (args) => [...args, '--token', process.env.VERCEL_TOKEN || '', ..
 
 if (so !== '--so-vercel') {
   console.log(`Publicando ml-estoque no projeto ${ref}…`);
-  rodar('npx', ['--yes', 'supabase@latest', 'functions', 'deploy', 'ml-estoque', '--project-ref', ref, '--no-verify-jwt'], { cwd: GESTAO });
+  rodar('npx', ['--yes', 'supabase@latest', 'functions', 'deploy', 'ml-estoque', '--project-ref', ref, '--no-verify-jwt', '--yes'], { cwd: PAINEL });
   // secret por arquivo temporário (não aparece na linha de comando)
   const dir = mkdtempSync(join(tmpdir(), 'erp-ml-'));
   const arq = join(dir, 'secrets.env');
   writeFileSync(arq, `ERP_ML_SECRET=${ERP_ML_SECRET}\n`);
-  try { rodar('npx', ['--yes', 'supabase@latest', 'secrets', 'set', '--env-file', arq, '--project-ref', ref], { cwd: GESTAO }); } finally { rmSync(dir, { recursive: true, force: true }); }
+  try { rodar('npx', ['--yes', 'supabase@latest', 'secrets', 'set', '--env-file', arq, '--project-ref', ref, '--yes'], { cwd: PAINEL }); } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 if (so !== '--so-supabase') {
   rodar('npx', vercel(['--yes', 'vercel', 'link', '--yes', '--project', 'erp-ponto-certo']));

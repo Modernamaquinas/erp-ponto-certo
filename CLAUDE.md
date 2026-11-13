@@ -84,9 +84,9 @@ ERP web da Ponto Certo Ferragens (pt-BR), substituindo o DirectControl/Acertsoft
 - Lista de compras (`/compras/lista`, `lista_compras`): em falta (estoque ≤ 0, com venda ou mínimo) e no mínimo; sugestão = repor até
   max(mínimo, média diária × cobertura), pelo menos o mínimo; agrupada pelo último fornecedor (compra mais recente).
 - Marketplaces (`/marketplaces`, 022/023, `api/marketplaces.js` + `api/_lib/marketplaces.js`): Mercado Livre da conta MODERNAMAQUINAS
-  (68412748), só os anúncios da Ponto Certo (`ml_produtos.categoria = 'bloqueado'` no Supabase do Moderna Gestão). O ERP **não guarda
-  nem renova o token do ML**: chama a edge function `ml-estoque` (fonte em `Documents\Moderna Gestao\supabase\functions\ml-estoque`,
-  copiada em `integracao-mercadolivre`), que usa `ml_contas`/`tokenValido` e recusa anúncio da Moderna. Segredos: `ERP_ML_SECRET`
+  (68412748), só os anúncios da Ponto Certo (`ml_produtos.categoria = 'bloqueado'` no Supabase `vbfshzwgomzjmtlqeyiy` do painel financeiro da
+  Ponto Certo). O ERP **não guarda nem renova o token do ML**: chama a edge function `ml-estoque` (fonte em
+  `Documents\Dashboard Financeiro Ponto Certo Ferragens\supabase\functions\ml-estoque`; o Moderna Gestão é outro sistema, não mexer), que usa `ml_contas`/`tokenValido` e recusa anúncio da Moderna. Segredos: `ERP_ML_SECRET`
   (igual nos dois lados), `ML_ESTOQUE_URL`, `MARKETPLACE_CRON_SECRET` — `scripts/configurar-marketplaces.mjs` publica e grava sem imprimir.
   Anúncio ↔ produto(s) em `marketplace_composicao` (kit = quantidade; vínculo automático por GTIN único). Estoque enviado =
   min(floor((estoque − reserva) / qtd)). Trigger em `produtos.estoque` marca os anúncios `pendente`; o PDV (finalizar, consignado,

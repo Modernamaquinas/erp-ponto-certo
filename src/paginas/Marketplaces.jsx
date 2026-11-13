@@ -155,7 +155,7 @@ export default function Marketplaces() {
         <button type="button" className="btn btn-pri" disabled={Boolean(ocupado) || !status.dados?.configurado} onClick={() => acao('ml_sincronizar', 'Sincronizado')}>{ocupado === 'ml_sincronizar' ? 'Sincronizando…' : 'Sincronizar agora'}</button>
       </>}>
       {status.erro && <Aviso tipo="erro">{status.erro}</Aviso>}
-      {status.dados && !status.dados.configurado && <Aviso tipo="alerta">A ligação com o Mercado Livre ainda não foi configurada no servidor (função ml-estoque no Supabase do Moderna Gestão e as variáveis ML_ESTOQUE_URL / ERP_ML_SECRET na Vercel).</Aviso>}
+      {status.dados && !status.dados.configurado && <Aviso tipo="alerta">A ligação com o Mercado Livre ainda não foi configurada no servidor (função ml-estoque no Supabase do painel da Ponto Certo e as variáveis ML_ESTOQUE_URL / ERP_ML_SECRET na Vercel).</Aviso>}
       <div className="abas" role="tablist">
         {[['anuncios', 'Mercado Livre — anúncios'], ['pedidos', 'Mercado Livre — vendas'], ['shopee', 'Shopee']].map(([k, r]) => (
           <button key={k} type="button" role="tab" aria-selected={aba === k} className={`aba${aba === k ? ' ativa' : ''}`} onClick={() => setAba(k)}>{r}</button>))}
