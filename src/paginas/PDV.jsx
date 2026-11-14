@@ -300,13 +300,16 @@ function Pagamento({ op, total: totalItens, cliente, descGeral, setDescGeral, to
   const [frete, setFrete] = useState('');
   const [endereco, setEndereco] = useState('');
   const [docFiscal, setDocFiscal] = useState('nfce');
-  // "Entrega": abre a linha com endereço, quem recebe, telefone, data e horário (preenchida pelo cadastro quando há cliente)
+  // Desconto, frete e endereço ficam sempre visíveis (todos opcionais; o frete soma no total). "Entrega" abre os
+  // detalhes para o entregador: quem recebe, telefone, data e horário (preenchidos pelo cadastro quando há cliente)
   const [entrega, setEntrega] = useState(false);
   const [ent, setEnt] = useState({ nome: '', telefone: '', data: hoje(), horario: '' });
   const setE = (k) => (e) => setEnt((x) => ({ ...x, [k]: e.target.value }));
   async function marcarEntrega(v) {
     setEntrega(v);
-    if (!v) { setFrete(''); return; }
+    if (v) await enderecoDoCliente();
+  }
+  async function enderecoDoCliente() {
     if (cliente?.id && !endereco) {
       const { data: c } = await supabase.from('clientes').select('endereco, numero, complemento, bairro, celular, telefone, cidades(nome, uf)').eq('id', cliente.id).maybeSingle();
       if (c) {
@@ -316,7 +319,7 @@ function Pagamento({ op, total: totalItens, cliente, descGeral, setDescGeral, to
       }
     }
   }
-  const total = r2(totalItens + (entrega ? num(frete) : 0));
+  const total = r2(totalItens + Math.max(0, num(frete)));
   const valorTxt = (v) => String(v.toFixed(2)).replace('.', ',');
   const vencCrediario = vencimentoCrediario(hoje()); // regra da loja: dia 10 do mês seguinte (o servidor aplica sempre)
   const [pags, setPags] = useState([{ forma: 'dinheiro', valor: valorTxt(total), parcelas: '1', primeiro_vencimento: vencCrediario }]);
@@ -347,14 +350,14 @@ function Pagamento({ op, total: totalItens, cliente, descGeral, setDescGeral, to
       if (!cliente && ent.telefone.replace(/\D/g, '').length < 10) return avisar('Entrega: informe o telefone com DDD.', 'erro');
       if (ent.data && ent.data < hoje()) return avisar('Entrega: a data já passou.', 'erro');
     }
-    if (entrega && num(frete) > 0 && !cliente) return avisar('Venda com frete precisa do cliente cadastrado: a nota de entrega leva o CPF/CNPJ e o endereço dele.', 'erro');
+    if (num(frete) > 0 && !cliente) return avisar('Venda com frete precisa do cliente cadastrado: a nota de entrega leva o CPF/CNPJ e o endereço dele.', 'erro');
     if (descPerc > Number(op.desconto_maximo) + 0.001) return avisar(`Desconto acima do máximo de ${numero(op.desconto_maximo)}% para ${op.nome}.`, 'erro');
     setEnviando(true);
     try {
       const pagamentos = pags.filter((p) => efetivo(p) > 0).map((p) => ({ forma: p.forma, valor: efetivo(p),
         ...(p.forma === 'crediario' ? { parcelas: Number(p.parcelas) || 1, primeiro_vencimento: p.primeiro_vencimento } : {}) }));
       const dadosEntrega = entrega ? { nome: ent.nome.trim() || cliente?.nome || '', telefone: ent.telefone.trim(), data: ent.data || null, horario: ent.horario.trim() } : null;
-      const extra = { frete: entrega ? num(frete) : 0, endereco_entrega: (entrega && endereco.trim()) || undefined, documento_fiscal: docFiscal, entrega: dadosEntrega || undefined };
+      const extra = { frete: num(frete), endereco_entrega: endereco.trim() || undefined, documento_fiscal: docFiscal, entrega: dadosEntrega || undefined };
       const r = await enviar({ pagamentos, cpf: nfe ? undefined : cpf.replace(/\D/g, '') || undefined, ...extra });
       aoConcluir(r, pagamentos, { frete: extra.frete, endereco: extra.endereco_entrega, entrega: dadosEntrega, documento_fiscal: docFiscal });
     } catch (e) { avisar(e.message, 'erro'); setEnviando(false); }
@@ -375,30 +378,32 @@ function Pagamento({ op, total: totalItens, cliente, descGeral, setDescGeral, to
       {nfe && !cliente && <Aviso tipo="erro">NF-e precisa do cliente cadastrado com CPF/CNPJ e endereço completo: volte e escolha o cliente.</Aviso>}
       {nfe && cliente && <Aviso>A NF-e sai para <strong>{cliente.nome}</strong> com o endereço do cadastro. Se faltar algo, corrija em Clientes → Editar cadastro.</Aviso>}
       <div className="filtros">
-        <Campo rotulo={`Desconto em R$ (máx. ${numero(op.desconto_maximo)}%)`}>
+        <Campo rotulo={`Desconto em R$ (opcional, máx. ${numero(op.desconto_maximo)}%)`}>
           <input inputMode="decimal" value={descGeral} onChange={(e) => setDescGeral(e.target.value)} placeholder="0,00" />
         </Campo>
+        <Campo rotulo="Frete em R$ (opcional)">
+          <input inputMode="decimal" value={frete} onChange={(e) => setFrete(e.target.value)} onFocus={enderecoDoCliente} placeholder="0,00" />
+        </Campo>
+        <Campo rotulo="Endereço (opcional)" largo>
+          <input value={endereco} onChange={(e) => setEndereco(e.target.value)} maxLength={300} placeholder="Rua, número, bairro, cidade, ponto de referência" />
+        </Campo>
         <label className={`pdv-entrega-marca${entrega ? ' ativo' : ''}`}>
-          <input type="checkbox" checked={entrega} onChange={(e) => marcarEntrega(e.target.checked)} /> <span>🚚 <strong>Entrega</strong></span>
+          <input type="checkbox" checked={entrega} onChange={(e) => marcarEntrega(e.target.checked)} /> <span>🚚 <strong>Entrega</strong> <small>(dados para o entregador)</small></span>
         </label>
       </div>
       {entrega && (
         <div className="pdv-entrega">
-          <Campo rotulo="Endereço da entrega" largo>
-            <input value={endereco} onChange={(e) => setEndereco(e.target.value)} maxLength={300} placeholder="Rua, número, bairro, cidade, ponto de referência" autoFocus />
-          </Campo>
           <Campo rotulo={cliente ? 'Quem recebe' : 'Nome do cliente'}><input value={ent.nome} onChange={setE('nome')} maxLength={80} placeholder={cliente?.nome || 'Nome'} /></Campo>
           <Campo rotulo="Telefone"><input value={ent.telefone} onChange={setE('telefone')} inputMode="tel" maxLength={20} placeholder="(54) 99999-9999" /></Campo>
           <Campo rotulo="Data da entrega"><input type="date" value={ent.data} min={hoje()} onChange={setE('data')} /></Campo>
           <Campo rotulo="Horário"><input value={ent.horario} onChange={setE('horario')} maxLength={30} placeholder="ex.: 14h às 16h" list="pdv-horarios" />
             <datalist id="pdv-horarios"><option value="Manhã" /><option value="Tarde" /><option value="8h às 10h" /><option value="10h às 12h" /><option value="13h30 às 15h30" /><option value="15h30 às 18h" /></datalist></Campo>
-          <Campo rotulo="Frete (R$)"><input inputMode="decimal" value={frete} onChange={(e) => setFrete(e.target.value)} placeholder="0,00" /></Campo>
         </div>
       )}
       {descPerc > Number(op.desconto_maximo) + 0.001 && <Aviso tipo="erro">Desconto de {numero(descPerc.toFixed(2))}% acima do permitido para {op.nome}.</Aviso>}
-      {entrega && num(frete) > 0 && !cliente && <Aviso tipo="erro">Com frete, escolha o cliente cadastrado: a SEFAZ exige o CPF/CNPJ e o endereço dele na nota de entrega.</Aviso>}
+      {num(frete) > 0 && !cliente && <Aviso tipo="erro">Com frete, escolha o cliente cadastrado: a SEFAZ exige o CPF/CNPJ e o endereço dele na nota de entrega.</Aviso>}
       {entrega && !num(frete) && !cliente && <p className="texto-fraco">Sem frete, a entrega vai só na observação da nota e no comprovante (que sai com o quadro de entrega para o entregador).</p>}
-      {entrega && num(frete) > 0 && cliente && !nfe && <p className="texto-fraco">Com frete, a NFC-e sai como entrega a domicílio para o endereço do cadastro de {cliente.nome}; o frete soma no total.</p>}
+      {num(frete) > 0 && cliente && !nfe && <p className="texto-fraco">Com frete, a NFC-e sai como entrega a domicílio para o endereço do cadastro de {cliente.nome}; o frete soma no total.</p>}
       <h3 className="pdv-subtitulo">Pagamento</h3>
       {pags.map((p, k) => (
         <div key={k} className="filtros">

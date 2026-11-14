@@ -69,7 +69,7 @@ function Periodo({ ini, fim, aoMudar }) {
 }
 
 function useRelatorio(fn, args, deps) {
-  return useConsulta(async () => ({ dados: ou(await supabase.rpc(fn, args)) }), deps);
+  return useConsulta(async () => ({ dados: ou(await supabase.rpc(fn, args)).data }), deps);
 }
 
 function Carregando({ erro }) {
