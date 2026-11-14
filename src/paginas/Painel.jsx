@@ -62,6 +62,11 @@ function GraficoVendas({ meses }) {
   );
 }
 
+/** Atalho grande para a pré-venda: só aparece no celular (CSS .so-celular), já no carregamento do painel. */
+const BotaoPreVenda = () => (
+  <a className="btn btn-pri btn-prevenda so-celular" href="#/prevenda">📱 Pré-venda</a>
+);
+
 export default function Painel() {
   const perfil = usePerfil();
   const fin = podeFinanceiro(perfil);
@@ -73,13 +78,14 @@ export default function Painel() {
     return { dados: { r: resumo, meses } };
   }, []);
 
-  if (erro) return <Pagina titulo="Painel"><Aviso tipo="erro">{erro}</Aviso></Pagina>;
-  if (!dados) return <Pagina titulo="Painel"><p>Carregando…</p></Pagina>;
+  if (erro) return <Pagina titulo="Painel"><BotaoPreVenda /><Aviso tipo="erro">{erro}</Aviso></Pagina>;
+  if (!dados) return <Pagina titulo="Painel"><BotaoPreVenda /><p>Carregando…</p></Pagina>;
   const { r, meses } = dados;
 
   return (
     <Pagina titulo="Painel" subtitulo={r.ultima_sincronizacao
       ? `Dados do DirectControl sincronizados em ${dataHora(r.ultima_sincronizacao)}` : 'Nenhuma sincronização com o DirectControl registrada ainda'}>
+      <BotaoPreVenda />
       {fin && Number(r.conflitos) > 0 && (
         <Aviso tipo="erro">
           <strong>{r.conflitos} cobrança(s) Asaas</strong> têm títulos que já foram pagos no balcão. Cancele para o cliente não pagar duas vezes.{' '}

@@ -250,7 +250,11 @@ button.cartao:hover { border-color: var(--marca); }
 .barra-col:last-child .dica { left: auto; right: 0; transform: none; }
 
 /* ---------------------------------------------------------------- celular */
+.so-celular { display: none; }
 @media (max-width: 860px) {
+  .so-celular { display: flex; }
+  .btn-prevenda { justify-content: center; align-items: center; width: 100%; min-height: 64px; font-size: 1.25rem; font-weight: 700;
+    margin-bottom: 16px; border-radius: 12px; text-decoration: none; }
   .app { grid-template-columns: 1fr; }
   .lateral { position: fixed; inset: 0 auto 0 0; width: 260px; z-index: 40; transform: translateX(-100%); transition: transform .2s; }
   .app.menu-aberto .lateral { transform: none; }
